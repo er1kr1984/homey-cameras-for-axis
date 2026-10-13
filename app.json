@@ -1268,6 +1268,95 @@
       ]
     }
   ],
+  "widgets": {
+    "analytics": {
+      "name": {
+        "en": "Camera analytics"
+      },
+      "height": 420,
+      "settings": [
+        {
+          "id": "camera",
+          "type": "autocomplete",
+          "title": {
+            "en": "Camera"
+          },
+          "hint": {
+            "en": "The camera to show, with what its analytics see."
+          }
+        },
+        {
+          "id": "boxes",
+          "type": "checkbox",
+          "title": {
+            "en": "Draw boxes around people and vehicles"
+          },
+          "value": true
+        },
+        {
+          "id": "quality",
+          "type": "dropdown",
+          "title": {
+            "en": "Video quality"
+          },
+          "value": "low",
+          "values": [
+            {
+              "id": "low",
+              "title": {
+                "en": "Low (recommended)"
+              }
+            },
+            {
+              "id": "medium",
+              "title": {
+                "en": "Medium"
+              }
+            },
+            {
+              "id": "auto",
+              "title": {
+                "en": "Automatic"
+              }
+            }
+          ]
+        }
+      ],
+      "api": {
+        "state": {
+          "method": "POST",
+          "path": "/state"
+        },
+        "scene": {
+          "method": "POST",
+          "path": "/scene"
+        },
+        "snapshot": {
+          "method": "POST",
+          "path": "/snapshot"
+        },
+        "offer": {
+          "method": "POST",
+          "path": "/offer"
+        }
+      },
+      "id": "analytics"
+    },
+    "overview": {
+      "name": {
+        "en": "Analytics overview"
+      },
+      "height": 300,
+      "settings": [],
+      "api": {
+        "overview": {
+          "method": "GET",
+          "path": "/overview"
+        }
+      },
+      "id": "overview"
+    }
+  },
   "capabilities": {
     "axis_count": {
       "type": "number",

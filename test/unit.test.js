@@ -136,13 +136,17 @@ test('scene description: objects, types and colours', () => {
   const { parseScene, colorName } = require('../lib/rtsp-events');
   const xml = `<tt:MetadataStream xmlns:tt="http://www.onvif.org/ver10/schema"><tt:VideoAnalytics>
     <tt:Frame UtcTime="2026-10-13T21:00:00Z">
-      <tt:Object ObjectId="1"><tt:Appearance><tt:Shape/><tt:Class><tt:Type Likelihood="0.9">Human</tt:Type><tt:Type Likelihood="0.1">Vehicle</tt:Type></tt:Class>
+      <tt:Object ObjectId="1"><tt:Appearance><tt:Shape><tt:BoundingBox left="-0.5" top="0.5" right="0" bottom="-0.5"/></tt:Shape><tt:Class><tt:Type Likelihood="0.9">Human</tt:Type><tt:Type Likelihood="0.1">Vehicle</tt:Type></tt:Class>
         <tt:Color><tt:ColorCluster><tt:Color X="76" Y="85" Z="255" Colorspace="http://www.onvif.org/ver10/colorspace/YCbCr"/></tt:ColorCluster></tt:Color></tt:Appearance></tt:Object>
       <tt:Object ObjectId="2"><tt:Appearance><tt:Class><tt:Type Likelihood="0.8">Car</tt:Type></tt:Class></tt:Appearance></tt:Object>
     </tt:Frame></tt:VideoAnalytics></tt:MetadataStream>`;
   const f = parseScene(xml);
   assert.deepStrictEqual(f.objects.map((o) => o.type), ['human', 'car']);
   assert.deepStrictEqual(f.objects[0].colors, ['red']);
+  assert.deepStrictEqual(f.objects[0].box, {
+    x: 0.25, y: 0.25, w: 0.25, h: 0.5,
+  });
+  assert.strictEqual(f.objects[1].box, null);
   assert.strictEqual(colorName(0, 0, 255, 'RGB'), 'blue');
   assert.strictEqual(colorName(250, 250, 250, 'RGB'), 'white');
   assert.strictEqual(parseScene('<tt:MetadataStream/>'), null);

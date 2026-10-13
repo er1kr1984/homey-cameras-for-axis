@@ -32,6 +32,7 @@ class AxisApp extends Homey.App {
     this.homey.setInterval(() => this._persistLogs(false), LOG_PERSIST_MS);
     if (!this.homey.settings.get('diagnostics')) this.homey.settings.unset('diag_previous_logs');
     this.relay = null;
+    this._registerWidgets();
     this.diag('Axis cameras app started');
     if (tuningFailures.length) this.diagError('Running without some speed-ups:', tuningFailures.join('; '));
   }
@@ -56,6 +57,66 @@ class AxisApp extends Homey.App {
       });
     }
     return this.relay;
+  }
+
+  // ---- Dashboard widgets ----
+
+  _cameras() {
+    return this.homey.drivers.getDriver('camera').getDevices();
+  }
+
+  _registerWidgets() {
+    const widget = this.homey.dashboards.getWidget('analytics');
+    widget.registerSettingAutocompleteListener('camera', async (query) => {
+      const q = String(query || '').toLowerCase();
+      return this._cameras()
+        .map((d) => ({ id: d.getId(), name: d.getName(), description: d.getSetting('model') || '' }))
+        .filter((c) => c.name.toLowerCase().includes(q));
+    });
+  }
+
+  _widgetCamera(camera) {
+    const id = camera && (camera.id || camera);
+    const device = this._cameras().find((d) => d.getId() === id);
+    if (!device) throw new Error(this.homey.__('widget.missing'));
+    return device;
+  }
+
+  widgetState({ camera }) {
+    return this._widgetCamera(camera).widgetState();
+  }
+
+  widgetScene({ camera }) {
+    return this._widgetCamera(camera).widgetScene();
+  }
+
+  async widgetSnapshot({ camera }) {
+    const device = this._widgetCamera(camera);
+    try {
+      const jpeg = await device.client.snapshot({ resolution: device._snapshotResolution() });
+      return { jpeg: jpeg.toString('base64') };
+    } catch (err) {
+      throw new Error(this.friendly(err));
+    }
+  }
+
+  async widgetOffer({ camera, sdp, quality }) {
+    const device = this._widgetCamera(camera);
+    const mode = ['low', 'medium', 'auto'].includes(quality) ? quality : 'low';
+    device.diag(`widget viewer offer (${mode})`);
+    try {
+      const { answerSdp } = await this.getRelay().openViewer({
+        camera: device.liveCamera(), mode, startProfile: 'low', viewerOfferSdp: sdp,
+      });
+      return { answerSdp };
+    } catch (err) {
+      if (err.code === 'too_many_streams') throw new Error('Too many live streams');
+      throw new Error(this.friendly(err));
+    }
+  }
+
+  widgetOverview() {
+    return { cameras: this._cameras().map((d) => d.widgetState()), updated: Date.now() };
   }
 
   // ---- Messages ----

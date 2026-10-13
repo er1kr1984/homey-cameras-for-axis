@@ -1,0 +1,343 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    [hidden] { display: none !important; }
+    :root {
+      --text: var(--homey-text-color, #1d1d1f);
+      --muted: var(--homey-text-color-light, #8a8a8e);
+      --line: var(--homey-line-color, rgba(127,127,127,.18));
+      --chip: rgba(127,127,127,.12);
+      --alert: #e5484d;
+      --ok: #2fb86a;
+      --human: #3ba7ff;
+      --vehicle: #ffb020;
+      --other: #b4b8bf;
+      --font: var(--homey-font-family, -apple-system, system-ui, sans-serif);
+    }
+    html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 var(--font); }
+    .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; }
+    .stage video, .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; background: #000; }
+    .boxes { position: absolute; inset: 0; pointer-events: none; }
+    .box { position: absolute; border: 2px solid var(--other); border-radius: 3px; transition: all .3s linear; }
+    .box.human { border-color: var(--human); }
+    .box.vehicle { border-color: var(--vehicle); }
+    .box span { position: absolute; left: -2px; top: -18px; padding: 1px 5px; border-radius: 3px; font-size: 10.5px; font-weight: 600; white-space: nowrap; color: #000; background: var(--other); }
+    .box.human span { background: var(--human); }
+    .box.vehicle span { background: var(--vehicle); }
+    .box.low span { top: auto; bottom: -18px; }
+    .overlay { position: absolute; left: 8px; right: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+    .tag { padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+    .tag.live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--alert); }
+    .tag.motion { background: rgba(229,72,77,.85); }
+    .status { position: absolute; inset: 0; display: grid; place-items: center; color: #ddd; font-size: 12px; text-align: center; padding: 0 16px; }
+    .info { padding: 10px 2px 2px; }
+    .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .head h2 { margin: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .head .sub { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .problem { margin-top: 6px; color: var(--alert); font-size: 12px; font-weight: 500; }
+    h3 { margin: 12px 0 5px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--chip); font-size: 11.5px; font-weight: 500; }
+    .chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .5; }
+    .chip.on { background: rgba(229,72,77,.14); color: var(--alert); }
+    .chip.on::before { background: var(--alert); opacity: 1; animation: pulse 1.4s infinite; }
+    .chip.count::before { display: none; }
+    .chip b { font-variant-numeric: tabular-nums; }
+    @keyframes pulse { 50% { opacity: .35; } }
+    .ev { display: flex; gap: 8px; padding: 3px 0; font-size: 12px; border-bottom: 1px solid var(--line); }
+    .ev:last-child { border-bottom: 0; }
+    .ev time { flex: none; width: 74px; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .ev .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ev.problem .what, .ev.tampering .what, .ev.sound .what { color: var(--alert); }
+    .empty { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <video id="video" muted playsinline autoplay></video>
+    <img id="img" alt="" hidden />
+    <div class="boxes" id="boxes"></div>
+    <div class="overlay" id="overlay"></div>
+    <div class="status" id="status"></div>
+  </div>
+  <div class="info" id="info"></div>
+
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      const settings = Homey.getSettings() || {};
+      const camera = settings.camera;
+      const showBoxes = settings.boxes !== false;
+      const quality = settings.quality || 'low';
+      const t = (k, v) => Homey.__(`widget.${k}`, v);
+      const $ = (id) => document.getElementById(id);
+      const video = $('video');
+      const img = $('img');
+      const status = $('status');
+      const STATE_MS = 3000;
+      const SCENE_MS = 400;
+      const LIVE_TIMEOUT_MS = 8000;
+      const PICTURE_MS = 2000;
+      const ICE_WAIT_MS = 2500;
+      let pc = null;
+      let liveTimer = null;
+      let pictureTimer = null;
+      let retryTimer = null;
+      let retries = 0;
+      let stateTimer = null;
+      let sceneTimer = null;
+      let mode = 'connecting';
+      let state = null;
+
+      const el = (tag, cls, text) => {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text !== undefined) e.textContent = text;
+        return e;
+      };
+      const fit = () => { try { Homey.setHeight(document.body.scrollHeight); } catch (e) { /* older Homey */ } };
+      const kindOf = (type) => (/human|person|face|head/.test(type || '') ? 'human'
+        : /vehicle|car|truck|bus|bike|bicycle|motorcycle/.test(type || '') ? 'vehicle' : 'other');
+
+      if (!camera) {
+        status.textContent = t('pickCamera');
+        fit();
+        Homey.ready();
+        return;
+      }
+
+      // ---- Video: live over WebRTC, pictures when that can't connect ----
+
+      function waitForIce(conn) {
+        if (conn.iceGatheringState === 'complete') return Promise.resolve();
+        return new Promise((resolve) => {
+          const timer = setTimeout(resolve, ICE_WAIT_MS);
+          conn.addEventListener('icegatheringstatechange', () => {
+            if (conn.iceGatheringState === 'complete') { clearTimeout(timer); resolve(); }
+          });
+        });
+      }
+
+      function stopLive() {
+        clearTimeout(liveTimer);
+        if (pc) { try { pc.close(); } catch (e) { /* closed */ } }
+        pc = null;
+        video.srcObject = null;
+      }
+
+      function stopPictures() {
+        clearInterval(pictureTimer);
+        pictureTimer = null;
+      }
+
+      async function connect() {
+        stopLive();
+        clearTimeout(retryTimer);
+        if (document.hidden) return;
+        if (!pictureTimer) { status.hidden = false; status.textContent = t('connecting'); }
+        liveTimer = setTimeout(() => {
+          if (video.readyState < 2) { stopLive(); startPictures(); }
+        }, LIVE_TIMEOUT_MS);
+        let conn;
+        try {
+          conn = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        } catch (err) {
+          clearTimeout(liveTimer);
+          startPictures();
+          return;
+        }
+        pc = conn;
+        conn.addTransceiver('video', { direction: 'recvonly' });
+        conn.ontrack = (e) => {
+          video.srcObject = e.streams[0] || new MediaStream([e.track]);
+          video.play().catch(() => {});
+        };
+        conn.onconnectionstatechange = () => {
+          if (pc !== conn) return;
+          if (conn.connectionState === 'failed' || conn.connectionState === 'disconnected') { stopLive(); startPictures(); }
+        };
+        try {
+          await conn.setLocalDescription(await conn.createOffer());
+          await waitForIce(conn);
+          if (pc !== conn) return;
+          const { answerSdp } = await Homey.api('POST', '/offer', { camera, sdp: conn.localDescription.sdp, quality });
+          if (pc !== conn) return;
+          await conn.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+        } catch (err) {
+          if (pc !== conn) return;
+          stopLive();
+          startPictures();
+        }
+      }
+
+      video.onloadedmetadata = () => {
+        if (video.videoWidth && video.videoHeight) $('stage').style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+        fit();
+      };
+      video.onplaying = () => {
+        clearTimeout(liveTimer);
+        retries = 0;
+        stopPictures();
+        img.hidden = true;
+        status.hidden = true;
+        mode = 'live';
+        renderOverlay();
+      };
+
+      function startPictures() {
+        if (pictureTimer || document.hidden) return;
+        mode = 'picture';
+        const refresh = async () => {
+          try {
+            const { jpeg } = await Homey.api('POST', '/snapshot', { camera });
+            img.src = `data:image/jpeg;base64,${jpeg}`;
+            img.hidden = false;
+            status.hidden = true;
+          } catch (e) {
+            if (img.hidden) { status.hidden = false; status.textContent = (e && e.message) || String(e); }
+          }
+        };
+        img.onload = () => {
+          if (img.naturalWidth && video.readyState < 2) $('stage').style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+          fit();
+        };
+        refresh();
+        pictureTimer = setInterval(refresh, PICTURE_MS);
+        renderOverlay();
+        // Try live again (e.g. back on the home network): soon, then once a minute.
+        retryTimer = setTimeout(connect, retries++ ? 60000 : 10000);
+      }
+
+      // ---- Analytics ----
+
+      function renderOverlay() {
+        const o = $('overlay');
+        o.textContent = '';
+        if (mode === 'live') o.append(el('span', 'tag live', 'LIVE'));
+        else if (mode === 'picture') o.append(el('span', 'tag', t('pictures')));
+        if (!state) return;
+        if (state.motion) o.append(el('span', 'tag motion', t('motion')));
+        if (state.people !== null && state.people !== undefined) o.append(el('span', 'tag', `${state.people} ${t(state.people === 1 ? 'person' : 'people')}`));
+        if (state.vehicles !== null && state.vehicles !== undefined) o.append(el('span', 'tag', `${state.vehicles} ${t(state.vehicles === 1 ? 'vehicle' : 'vehicles')}`));
+        if (typeof state.noise === 'number') o.append(el('span', 'tag', `${Math.round(state.noise)} dB`));
+      }
+
+      function drawBoxes(objects) {
+        const layer = $('boxes');
+        const keep = new Set();
+        for (const obj of objects) {
+          if (!obj.box || obj.box.w <= 0 || obj.box.h <= 0) continue;
+          const id = obj.id || `${obj.type}-${Math.round(obj.box.x * 100)}`;
+          keep.add(id);
+          let box = layer.querySelector(`[data-id="${CSS.escape(id)}"]`);
+          if (!box) {
+            box = el('div', 'box');
+            box.dataset.id = id;
+            box.append(el('span'));
+            layer.append(box);
+          }
+          box.className = `box ${kindOf(obj.type)}${obj.box.y < 0.08 ? ' low' : ''}`;
+          box.style.left = `${obj.box.x * 100}%`;
+          box.style.top = `${obj.box.y * 100}%`;
+          box.style.width = `${obj.box.w * 100}%`;
+          box.style.height = `${obj.box.h * 100}%`;
+          box.firstChild.textContent = [obj.type || '?', ...(obj.colors || []).slice(0, 2)].join(' · ');
+        }
+        for (const b of [...layer.children]) if (!keep.has(b.dataset.id)) b.remove();
+      }
+
+      function ago(ms) {
+        const min = Math.round((Date.now() - ms) / 60000);
+        if (min < 1) return t('justNow');
+        if (min < 60) return t('minAgo', { n: min });
+        return t('hoursAgo', { n: Math.round(min / 60) });
+      }
+
+      function renderInfo() {
+        const info = $('info');
+        info.textContent = '';
+        const head = el('div', 'head');
+        head.append(el('h2', '', state.name));
+        const sub = [];
+        if (!state.available) sub.push(t('offline'));
+        else if (!state.events) sub.push(t('noEventsStream'));
+        else sub.push(state.motion ? t('motion') : t('noMotion'));
+        if (state.night !== null) sub.push(state.night ? t('night') : t('day'));
+        if (state.watched) sub.push(t('watched'));
+        if (state.recording) sub.push(t('recording'));
+        head.append(el('span', 'sub', sub.join(' · ')));
+        info.append(head);
+        if (state.problem) info.append(el('div', 'problem', `${t('problem')}: ${state.problem}`));
+        if (state.scenarios.length) {
+          info.append(el('h3', '', t('scenarios')));
+          const chips = el('div', 'chips');
+          for (const sc of state.scenarios) chips.append(el('span', `chip${sc.active ? ' on' : ''}`, sc.name));
+          info.append(chips);
+        }
+        if (state.counters.length) {
+          info.append(el('h3', '', t('counters')));
+          const chips = el('div', 'chips');
+          for (const c of state.counters) {
+            const chip = el('span', 'chip count', `${c.name} `);
+            chip.append(el('b', '', c.total === null || c.total === undefined ? '–' : String(c.total)));
+            chips.append(chip);
+          }
+          info.append(chips);
+        }
+        info.append(el('h3', '', t('latest')));
+        if (!state.recent.length) info.append(el('div', 'empty', t('noEvents')));
+        for (const ev of state.recent.slice(0, 5)) {
+          const row = el('div', `ev ${ev.kind}`);
+          row.append(el('time', '', ago(ev.time)), el('span', 'what', ev.text));
+          info.append(row);
+        }
+        fit();
+      }
+
+      async function pollState() {
+        clearTimeout(stateTimer);
+        if (document.hidden) return;
+        try {
+          state = await Homey.api('POST', '/state', { camera });
+          renderInfo();
+          renderOverlay();
+        } catch (err) {
+          $('info').textContent = (err && err.message) || String(err);
+          fit();
+        }
+        stateTimer = setTimeout(pollState, STATE_MS);
+      }
+
+      async function pollScene() {
+        clearTimeout(sceneTimer);
+        if (document.hidden || !showBoxes) return;
+        try {
+          const scene = await Homey.api('POST', '/scene', { camera });
+          drawBoxes(scene.objects || []);
+        } catch (e) { /* try again */ }
+        sceneTimer = setTimeout(pollScene, SCENE_MS);
+      }
+
+      function start() {
+        connect();
+        pollState();
+        pollScene();
+      }
+
+      function stop() {
+        clearTimeout(stateTimer);
+        clearTimeout(sceneTimer);
+        clearTimeout(retryTimer);
+        stopLive();
+        stopPictures();
+      }
+
+      document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+      start();
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

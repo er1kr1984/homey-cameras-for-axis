@@ -11,6 +11,9 @@ const FEATURES_VERSION = 3; // bump to re-read after an app update that uses mor
 const SOUND_LEVEL_MS = 10 * 1000; // sound level reading updated at most this often
 const AUDIO_CLASS_GAP_MS = 10 * 1000; // per sound type
 const SCENE_CHANGE_SAMPLES = 2; // a new people/vehicle count must hold this many frames
+const RECENT_EVENTS = 20; // kept for the dashboard widgets
+const WIDGET_SCENE_MS = 300; // scene frames while a widget shows the boxes
+const WIDGET_LEASE_MS = 15000; // keep the widget's scene stream this long after its last poll
 const HEALTH_MS = 5 * 60 * 1000;
 const TAMPER_HOLD_MS = 60 * 1000;
 const EVENT_IMAGES = 10; // flow pictures kept per camera (oldest reused)
@@ -30,6 +33,7 @@ class CameraDevice extends Homey.Device {
     this.eventImages = [];
     this.problems = new Map(); // source key -> problem text (active camera problems)
     this.audioClassAt = {};
+    this.recent = []; // [{ time, kind, text }] newest first, for the widgets
     this.features = this.getStoreValue('features') || null;
     this.instances = this.getStoreValue('event_instances') || [];
     for (const cap of ['alarm_motion', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
@@ -238,6 +242,7 @@ class CameraDevice extends Homey.Device {
       await this.setCapabilityValue('alarm_tamper', true).catch(this.error);
       this.homey.clearTimeout(this.tamperTimer);
       this.tamperTimer = this.homey.setTimeout(() => this.setCapabilityValue('alarm_tamper', false).catch(this.error), TAMPER_HOLD_MS);
+      this._remember('tampering', this.homey.__('widget.tampering'));
       this.driver.triggers.tampering.trigger(this, { image: await this._eventImage() }).catch(this.error);
     }
     if (kind === 'daynight' && state !== null) {
@@ -265,6 +270,7 @@ class CameraDevice extends Homey.Device {
       const sound = events.soundOf(ev.topic);
       if (Date.now() - (this.audioClassAt[sound] || 0) > AUDIO_CLASS_GAP_MS) {
         this.audioClassAt[sound] = Date.now();
+        this._remember('sound', this.homey.__(`sounds.${sound}`) || sound);
         this.driver.triggers.sound.trigger(this, {
           sound: this.homey.__(`sounds.${sound}`) || sound, image: await this._eventImage(),
         }, { sound }).catch(this.error);
@@ -291,6 +297,7 @@ class CameraDevice extends Homey.Device {
       const total = Number(details.total);
       const humans = Number(details.totalHuman);
       if (Number.isFinite(total)) await this.setCapabilityValue(`axis_count.${scenario.id}`, total).catch(this.error);
+      this._remember('counted', `${name}: ${Number.isFinite(total) ? total : '?'}`);
       this.driver.triggers.counted.trigger(this, {
         scenario: name, total: Number.isFinite(total) ? total : 0, humans: Number.isFinite(humans) ? humans : 0,
       }, { topic }).catch(this.error);
@@ -299,6 +306,7 @@ class CameraDevice extends Homey.Device {
     if (scenario && state !== null) await this.setCapabilityValue(`alarm_generic.${scenario.id}`, state).catch(this.error);
     if (state === false) return;
     const object = details.classTypes || details.objectClass || details.ObjectClass || '';
+    this._remember('analytics', `${name}${object ? ` (${object})` : ''}`);
     this.driver.triggers.analytics.trigger(this, {
       scenario: name,
       object: String(object),
@@ -322,10 +330,16 @@ class CameraDevice extends Homey.Device {
     if (state === false) {
       if (!this.problems.has(key)) return;
       this.problems.delete(key);
-      if (!initial) this.driver.triggers.problemSolved.trigger(this, { problem: text }).catch(this.error);
+      if (!initial) {
+        this._remember('solved', `${this.homey.__('widget.solved')}: ${text}`);
+        this.driver.triggers.problemSolved.trigger(this, { problem: text }).catch(this.error);
+      }
     } else {
       if (state === true) this.problems.set(key, text);
-      if (!initial) this.driver.triggers.problem.trigger(this, { problem: text }).catch(this.error);
+      if (!initial) {
+        this._remember('problem', text);
+        this.driver.triggers.problem.trigger(this, { problem: text }).catch(this.error);
+      }
     }
     const active = [...this.problems.values()];
     this.setCapabilityValue('alarm_problem', active.length > 0).catch(this.error);
@@ -344,11 +358,69 @@ class CameraDevice extends Homey.Device {
     if (this.hasCapability('measure_noise')) this.setCapabilityValue('measure_noise', level).catch(this.error);
   }
 
+  // ---- Recent events and the dashboard widgets ----
+
+  _remember(kind, text) {
+    this.recent.unshift({ time: Date.now(), kind, text });
+    if (this.recent.length > RECENT_EVENTS) this.recent.pop();
+  }
+
+  widgetState() {
+    const cap = (id) => (this.hasCapability(id) ? this.getCapabilityValue(id) : null);
+    const scenarios = events.analyticsScenarios(this.instances);
+    return {
+      id: this.getId(),
+      name: this.getName(),
+      model: this.getSetting('model') || '',
+      available: this.getAvailable(),
+      events: Boolean(this.stream && this.stream.connected),
+      motion: cap('alarm_motion') === true,
+      tamper: cap('alarm_tamper') === true,
+      night: cap('axis_night'),
+      problem: cap('alarm_problem') === true ? cap('axis_problem') : null,
+      noise: cap('measure_noise'),
+      watched: cap('axis_watched'),
+      recording: cap('axis_recording'),
+      people: cap('axis_people'),
+      vehicles: cap('axis_vehicles'),
+      scenarios: scenarios.filter((sc) => !sc.counting && sc.stateful)
+        .map((sc) => ({ name: sc.name, active: cap(`alarm_generic.${sc.id}`) === true })),
+      counters: scenarios.filter((sc) => sc.counting)
+        .map((sc) => ({ name: sc.name, total: cap(`axis_count.${sc.id}`) })),
+      recent: this.recent.slice(0, 8),
+    };
+  }
+
+  // The objects in view right now, for drawing boxes. Starts the scene stream for as long
+  // as a widget keeps asking (even when "count people and vehicles" is off).
+  widgetScene() {
+    this.sceneLeaseUntil = Date.now() + WIDGET_LEASE_MS;
+    if (!this.scene) {
+      this._startScene(true);
+    }
+    if (this.scene) this.scene.frameIntervalMs = WIDGET_SCENE_MS;
+    this.homey.clearTimeout(this.sceneLeaseTimer);
+    this.sceneLeaseTimer = this.homey.setTimeout(() => this._endSceneLease(), WIDGET_LEASE_MS + 1000);
+    const frame = this.lastFrame;
+    return {
+      age: frame ? Date.now() - frame.at : null,
+      objects: frame && Date.now() - frame.at < 3000 ? frame.objects : [],
+    };
+  }
+
+  _endSceneLease() {
+    if (Date.now() < (this.sceneLeaseUntil || 0)) return;
+    if (!this.scene) return;
+    if (this.getSetting('scene_counts')) this.scene.frameIntervalMs = 1000;
+    else this._stopScene();
+  }
+
   // ---- People and vehicles in view (analytics scene description, opt-in) ----
 
-  _startScene() {
+  // forWidget: start even when counting is off (a widget wants to draw boxes).
+  _startScene(forWidget = false) {
     this._stopScene();
-    if (!this.getSetting('scene_counts')) return;
+    if (!this.getSetting('scene_counts') && !forWidget) return;
     this.scene = new RtspEventStream({ camera: this.liveCamera(), mode: 'scene', log: (...args) => this.diag(...args) });
     this.sceneSamples = [];
     this.scene.on('connected', () => {
@@ -365,11 +437,14 @@ class CameraDevice extends Homey.Device {
 
   _stopScene() {
     this.homey.clearTimeout(this.sceneCheckTimer);
+    this.homey.clearTimeout(this.sceneLeaseTimer);
     if (this.scene) this.scene.stop();
     this.scene = null;
   }
 
   _onSceneFrame(frame) {
+    this.lastFrame = { at: Date.now(), objects: frame.objects };
+    if (!this.getSetting('scene_counts')) return;
     const isHuman = (t) => /human|person|face|head/.test(t || '');
     const isVehicle = (t) => /vehicle|car|truck|bus|bike|bicycle|motorcycle/.test(t || '');
     const people = frame.objects.filter((o) => isHuman(o.type)).length;
@@ -432,6 +507,7 @@ class CameraDevice extends Homey.Device {
       this.motionOffTimer = null;
       if (this.getCapabilityValue('alarm_motion') !== true) {
         this.setCapabilityValue('alarm_motion', true).catch(this.error);
+        this._remember('motion', this.homey.__('widget.motionStarted'));
         this._eventImage().then((image) => this.driver.triggers.motionStarted.trigger(this, { image })).catch(this.error);
       }
     } else if (this.getCapabilityValue('alarm_motion') === true && !this.motionOffTimer) {
@@ -440,6 +516,7 @@ class CameraDevice extends Homey.Device {
         this.motionOffTimer = null;
         if (this.motionSources.size) return;
         this.setCapabilityValue('alarm_motion', false).catch(this.error);
+        this._remember('motion_end', this.homey.__('widget.motionStopped'));
         this.driver.triggers.motionStopped.trigger(this, {}).catch(this.error);
       }, holdMs);
     }

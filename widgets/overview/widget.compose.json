@@ -1,0 +1,13 @@
+{
+  "name": {
+    "en": "Analytics overview"
+  },
+  "height": 300,
+  "settings": [],
+  "api": {
+    "overview": {
+      "method": "GET",
+      "path": "/overview"
+    }
+  }
+}
