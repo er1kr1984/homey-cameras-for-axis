@@ -1,0 +1,16 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Recording to SD card"
+  },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "insightsTitleTrue": {
+    "en": "Recording started"
+  },
+  "insightsTitleFalse": {
+    "en": "Recording stopped"
+  }
+}

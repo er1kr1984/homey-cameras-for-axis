@@ -75,7 +75,9 @@ test('event instances: parsed from GetEventInstances and turned into one filter'
   const filter = events.topicFilter(list);
   assert.ok(filter.includes('tns1:VideoSource/MotionAlarm'));
   assert.ok(!filter.includes('SystemReady'), 'topics the app does not use are left out');
-  assert.deepStrictEqual(events.analyticsScenarios(list), [{ topic: 'CameraApplicationPlatform/ObjectAnalytics/Device1Scenario1', name: 'Driveway' }]);
+  assert.deepStrictEqual(events.analyticsScenarios(list), [{
+    topic: 'CameraApplicationPlatform/ObjectAnalytics/Device1Scenario1', name: 'Driveway', counting: false, stateful: true, id: 'oa_d1s_1',
+  }]);
 });
 
 test('sdp: control URLs and parameter sets', () => {
@@ -106,4 +108,42 @@ test('h264: NAL types and STAP-A packing', () => {
   assert.deepStrictEqual(nalTypes(Buffer.from([0x7c, 0x85, 0])), [5]);
   assert.deepStrictEqual(nalTypes(Buffer.from([0x7c, 0x05, 0])), []);
   assert.deepStrictEqual(nalTypes(Buffer.from([0x41, 0])), [1]);
+});
+
+test('health, sounds and scenarios from real P3267 topics', () => {
+  assert.strictEqual(events.classify('tns1:Device/tnsaxis:Casing/Open'), 'health');
+  assert.strictEqual(events.problemOf('tns1:Device/tnsaxis:HardwareFailure/StorageFailure'), 'storageFailure');
+  assert.strictEqual(events.problemOf('tnsaxis:Storage/Disruption'), 'storage');
+  assert.strictEqual(events.classify('tnsaxis:Storage/Recording'), 'recording');
+  assert.strictEqual(events.classify('tnsaxis:AudioClassification/GlassBreak'), 'audioclass');
+  assert.strictEqual(events.soundOf('tnsaxis:AudioClassification/GlassBreak'), 'glassbreak');
+  assert.strictEqual(events.soundOf('tnsaxis:AdaptiveAudioDetection/Detected'), 'unusual');
+  assert.strictEqual(events.classify('tnsaxis:AdaptiveAudioDetection/LevelData'), null, 'frequent level data is not subscribed');
+  assert.strictEqual(events.classify('tnsaxis:SoundPressureLevel/Metrics'), 'soundlevel');
+  assert.strictEqual(events.stateOf({ data: { Detected: '1' } }), true);
+  const sc = events.analyticsScenarios([
+    { topic: 'tnsaxis:CameraApplicationPlatform/ObjectAnalytics/Device1Scenario-1119631251', name: 'Object Analytics: ACS_MotionRec1', stateful: true, data: ['active', 'classTypes'] },
+    { topic: 'tnsaxis:CameraApplicationPlatform/ObjectAnalytics/Device1Scenario3', name: 'Object Analytics: Counting In', stateful: false, data: ['total', 'totalHuman'] },
+    { topic: 'tnsaxis:CameraApplicationPlatform/ObjectAnalytics/Device1ScenarioANY', name: 'Any', stateful: true, data: ['active'] },
+  ]);
+  assert.deepStrictEqual(sc.map((x) => [x.name, x.counting, x.id]), [
+    ['ACS_MotionRec1', false, 'oa_d1s_m1119631251'],
+    ['Counting In', true, 'oa_d1s_3'],
+  ]);
+});
+
+test('scene description: objects, types and colours', () => {
+  const { parseScene, colorName } = require('../lib/rtsp-events');
+  const xml = `<tt:MetadataStream xmlns:tt="http://www.onvif.org/ver10/schema"><tt:VideoAnalytics>
+    <tt:Frame UtcTime="2026-10-13T21:00:00Z">
+      <tt:Object ObjectId="1"><tt:Appearance><tt:Shape/><tt:Class><tt:Type Likelihood="0.9">Human</tt:Type><tt:Type Likelihood="0.1">Vehicle</tt:Type></tt:Class>
+        <tt:Color><tt:ColorCluster><tt:Color X="76" Y="85" Z="255" Colorspace="http://www.onvif.org/ver10/colorspace/YCbCr"/></tt:ColorCluster></tt:Color></tt:Appearance></tt:Object>
+      <tt:Object ObjectId="2"><tt:Appearance><tt:Class><tt:Type Likelihood="0.8">Car</tt:Type></tt:Class></tt:Appearance></tt:Object>
+    </tt:Frame></tt:VideoAnalytics></tt:MetadataStream>`;
+  const f = parseScene(xml);
+  assert.deepStrictEqual(f.objects.map((o) => o.type), ['human', 'car']);
+  assert.deepStrictEqual(f.objects[0].colors, ['red']);
+  assert.strictEqual(colorName(0, 0, 255, 'RGB'), 'blue');
+  assert.strictEqual(colorName(250, 250, 250, 'RGB'), 'white');
+  assert.strictEqual(parseScene('<tt:MetadataStream/>'), null);
 });

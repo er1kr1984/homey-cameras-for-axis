@@ -25,12 +25,24 @@ class CameraDriver extends Homey.Driver {
       input: card('input_changed'),
       audio: card('audio_detected'),
       event: card('event_received'),
+      sound: card('sound_recognised'),
+      counted: card('object_counted'),
+      problem: card('camera_problem'),
+      problemSolved: card('camera_problem_solved'),
+      watched: card('live_watched_changed'),
+      schedule: card('schedule_changed'),
+      inView: card('in_view_changed'),
     };
+    this.triggers.sound.registerRunListener(async (args, state) => args.sound === 'any' || args.sound === state.sound);
+    this.triggers.counted.registerRunListener(async (args, state) => !args.scenario || args.scenario.id === 'any' || args.scenario.id === state.topic);
+    this.triggers.counted.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.countingChoices(query));
     this.triggers.analytics.registerRunListener(async (args, state) => !args.scenario || args.scenario.id === 'any' || args.scenario.id === state.topic);
     this.triggers.analytics.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.scenarioChoices(query));
     this.triggers.input.registerRunListener(async (args, state) => !args.port || Number(args.port) === state.port);
 
     flow.getConditionCard('is_night').registerRunListener(async (args) => args.device.getCapabilityValue('axis_night') === true);
+    flow.getConditionCard('live_watched').registerRunListener(async (args) => args.device.isWatched());
+    flow.getConditionCard('has_problem').registerRunListener(async (args) => args.device.getCapabilityValue('alarm_problem') === true);
     flow.getConditionCard('input_active').registerRunListener(async (args) => args.device.isInputActive(Number(args.port)));
 
     flow.getActionCard('take_snapshot').registerRunListener(async (args) => args.device.snapshotToken());

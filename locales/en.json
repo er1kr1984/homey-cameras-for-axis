@@ -33,5 +33,26 @@
     "diagnosticsTitle": "Diagnostics",
     "diagnostics": "Keep a diagnostic log",
     "diagnosticsHint": "Only switch this on when you are asked to, for example to report a problem. The log stays on your Homey."
+  },
+  "problems": {
+    "casing": "Casing open",
+    "network": "Network connection lost",
+    "hot": "Too hot",
+    "cold": "Too cold",
+    "storageFailure": "SD card or storage failure",
+    "storage": "Storage problem",
+    "storageAlert": "Storage alert",
+    "power": "Power supply problem",
+    "bitrate": "Video bitrate degraded",
+    "ptz": "PTZ error",
+    "actionFailed": "An action failed",
+    "none": "No problems"
+  },
+  "sounds": {
+    "glassbreak": "Breaking glass",
+    "screaming": "Screaming",
+    "shout": "Shouting",
+    "speech": "Speech",
+    "unusual": "An unusual sound"
   }
 }

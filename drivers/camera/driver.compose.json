@@ -6,7 +6,9 @@
   "capabilities": [
     "alarm_motion",
     "alarm_tamper",
-    "axis_night"
+    "axis_night",
+    "alarm_problem",
+    "axis_problem"
   ],
   "platforms": [
     "local"
@@ -80,5 +82,12 @@
         }
       }
     }
-  ]
+  ],
+  "capabilitiesOptions": {
+    "alarm_problem": {
+      "title": {
+        "en": "Camera problem alarm"
+      }
+    }
+  }
 }

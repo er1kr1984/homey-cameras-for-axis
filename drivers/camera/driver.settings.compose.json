@@ -147,6 +147,17 @@
         "hint": {
           "en": "When on, a person or vehicle seen by AXIS Object Analytics also turns on the motion alarm."
         }
+      },
+      {
+        "id": "scene_counts",
+        "type": "checkbox",
+        "label": {
+          "en": "Count people and vehicles in view"
+        },
+        "value": false,
+        "hint": {
+          "en": "Uses AXIS Object Analytics to show how many people and vehicles the camera sees right now. This makes Homey do more work, so only switch it on for cameras where you need it."
+        }
       }
     ]
   },

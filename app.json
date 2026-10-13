@@ -321,6 +321,331 @@
             "filter": "driver_id=camera"
           }
         ]
+      },
+      {
+        "id": "sound_recognised",
+        "title": {
+          "en": "A sound was recognised"
+        },
+        "titleFormatted": {
+          "en": "[[sound]] was heard"
+        },
+        "hint": {
+          "en": "The camera's audio analytics recognised a sound, for example breaking glass. Needs a camera with a microphone and audio analytics switched on."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "sound",
+            "type": "dropdown",
+            "title": {
+              "en": "Sound"
+            },
+            "values": [
+              {
+                "id": "any",
+                "label": {
+                  "en": "Any sound"
+                }
+              },
+              {
+                "id": "glassbreak",
+                "label": {
+                  "en": "Breaking glass"
+                }
+              },
+              {
+                "id": "screaming",
+                "label": {
+                  "en": "Screaming"
+                }
+              },
+              {
+                "id": "shout",
+                "label": {
+                  "en": "Shouting"
+                }
+              },
+              {
+                "id": "speech",
+                "label": {
+                  "en": "Speech"
+                }
+              },
+              {
+                "id": "unusual",
+                "label": {
+                  "en": "An unusual sound"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "sound",
+            "type": "string",
+            "title": {
+              "en": "Sound"
+            },
+            "example": {
+              "en": "Breaking glass"
+            }
+          },
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ]
+      },
+      {
+        "id": "object_counted",
+        "title": {
+          "en": "Object Analytics counted something"
+        },
+        "titleFormatted": {
+          "en": "Counting scenario [[scenario]] counted"
+        },
+        "hint": {
+          "en": "A counting scenario in AXIS Object Analytics counted a person or vehicle crossing its line."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "scenario",
+            "type": "autocomplete",
+            "title": {
+              "en": "Scenario"
+            },
+            "placeholder": {
+              "en": "Any scenario"
+            }
+          }
+        ],
+        "tokens": [
+          {
+            "name": "scenario",
+            "type": "string",
+            "title": {
+              "en": "Scenario"
+            },
+            "example": {
+              "en": "Counting In"
+            }
+          },
+          {
+            "name": "total",
+            "type": "number",
+            "title": {
+              "en": "Total counted"
+            },
+            "example": 12
+          },
+          {
+            "name": "humans",
+            "type": "number",
+            "title": {
+              "en": "People counted"
+            },
+            "example": 10
+          }
+        ]
+      },
+      {
+        "id": "camera_problem",
+        "title": {
+          "en": "The camera reported a problem"
+        },
+        "hint": {
+          "en": "For example the casing was opened, the SD card failed or the camera got too hot."
+        },
+        "tokens": [
+          {
+            "name": "problem",
+            "type": "string",
+            "title": {
+              "en": "Problem"
+            },
+            "example": {
+              "en": "SD card failure (SD_DISK)"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "camera_problem_solved",
+        "title": {
+          "en": "A camera problem was solved"
+        },
+        "tokens": [
+          {
+            "name": "problem",
+            "type": "string",
+            "title": {
+              "en": "Problem"
+            },
+            "example": {
+              "en": "Casing open"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "live_watched_changed",
+        "title": {
+          "en": "Someone started or stopped watching live"
+        },
+        "hint": {
+          "en": "The camera's live video was opened or closed, in Homey or anywhere else."
+        },
+        "tokens": [
+          {
+            "name": "watching",
+            "type": "boolean",
+            "title": {
+              "en": "Being watched"
+            },
+            "example": true
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "schedule_changed",
+        "title": {
+          "en": "A camera schedule started or ended"
+        },
+        "hint": {
+          "en": "A schedule set up in the camera (Settings > System > Events > Schedules)."
+        },
+        "tokens": [
+          {
+            "name": "schedule",
+            "type": "string",
+            "title": {
+              "en": "Schedule"
+            },
+            "example": {
+              "en": "1"
+            }
+          },
+          {
+            "name": "active",
+            "type": "boolean",
+            "title": {
+              "en": "Started"
+            },
+            "example": true
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "in_view_changed",
+        "title": {
+          "en": "People or vehicles in view changed"
+        },
+        "hint": {
+          "en": "Only when 'Count people and vehicles in view' is switched on in the device settings."
+        },
+        "tokens": [
+          {
+            "name": "people",
+            "type": "number",
+            "title": {
+              "en": "People in view"
+            },
+            "example": 1
+          },
+          {
+            "name": "vehicles",
+            "type": "number",
+            "title": {
+              "en": "Vehicles in view"
+            },
+            "example": 0
+          },
+          {
+            "name": "objects",
+            "type": "string",
+            "title": {
+              "en": "Object types"
+            },
+            "example": {
+              "en": "human"
+            }
+          },
+          {
+            "name": "colors",
+            "type": "string",
+            "title": {
+              "en": "Colours seen"
+            },
+            "example": {
+              "en": "red, black"
+            }
+          },
+          {
+            "name": "more_people",
+            "type": "boolean",
+            "title": {
+              "en": "More people than before"
+            },
+            "example": true
+          },
+          {
+            "name": "more_vehicles",
+            "type": "boolean",
+            "title": {
+              "en": "More vehicles than before"
+            },
+            "example": false
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
       }
     ],
     "conditions": [
@@ -362,6 +687,32 @@
             },
             "min": 1,
             "max": 64
+          }
+        ]
+      },
+      {
+        "id": "live_watched",
+        "title": {
+          "en": "Live view is !{{|not}} being watched"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "has_problem",
+        "title": {
+          "en": "Camera !{{has|has no}} problem"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
           }
         ]
       }
@@ -634,7 +985,9 @@
       "capabilities": [
         "alarm_motion",
         "alarm_tamper",
-        "axis_night"
+        "axis_night",
+        "alarm_problem",
+        "axis_problem"
       ],
       "platforms": [
         "local"
@@ -709,6 +1062,13 @@
           }
         }
       ],
+      "capabilitiesOptions": {
+        "alarm_problem": {
+          "title": {
+            "en": "Camera problem alarm"
+          }
+        }
+      },
       "id": "camera",
       "settings": [
         {
@@ -859,6 +1219,17 @@
               "hint": {
                 "en": "When on, a person or vehicle seen by AXIS Object Analytics also turns on the motion alarm."
               }
+            },
+            {
+              "id": "scene_counts",
+              "type": "checkbox",
+              "label": {
+                "en": "Count people and vehicles in view"
+              },
+              "value": false,
+              "hint": {
+                "en": "Uses AXIS Object Analytics to show how many people and vehicles the camera sees right now. This makes Homey do more work, so only switch it on for cameras where you need it."
+              }
             }
           ]
         },
@@ -898,6 +1269,34 @@
     }
   ],
   "capabilities": {
+    "axis_count": {
+      "type": "number",
+      "title": {
+        "en": "Counted"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "decimals": 0,
+      "icon": "/assets/icon.svg"
+    },
+    "axis_ir": {
+      "type": "boolean",
+      "title": {
+        "en": "Light on"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Light switched on"
+      },
+      "insightsTitleFalse": {
+        "en": "Light switched off"
+      }
+    },
     "axis_night": {
       "type": "boolean",
       "title": {
@@ -912,6 +1311,72 @@
       },
       "insightsTitleFalse": {
         "en": "Camera switched to day mode"
+      }
+    },
+    "axis_people": {
+      "type": "number",
+      "title": {
+        "en": "People in view"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "decimals": 0,
+      "icon": "/assets/icon.svg"
+    },
+    "axis_problem": {
+      "type": "string",
+      "title": {
+        "en": "Camera problem"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "/assets/icon.svg"
+    },
+    "axis_recording": {
+      "type": "boolean",
+      "title": {
+        "en": "Recording to SD card"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Recording started"
+      },
+      "insightsTitleFalse": {
+        "en": "Recording stopped"
+      }
+    },
+    "axis_vehicles": {
+      "type": "number",
+      "title": {
+        "en": "Vehicles in view"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "decimals": 0,
+      "icon": "/assets/icon.svg"
+    },
+    "axis_watched": {
+      "type": "boolean",
+      "title": {
+        "en": "Live view being watched"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Someone started watching live"
+      },
+      "insightsTitleFalse": {
+        "en": "Nobody watching live"
       }
     }
   },

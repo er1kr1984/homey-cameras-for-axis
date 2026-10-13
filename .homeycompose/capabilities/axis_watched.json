@@ -1,0 +1,16 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Live view being watched"
+  },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "insightsTitleTrue": {
+    "en": "Someone started watching live"
+  },
+  "insightsTitleFalse": {
+    "en": "Nobody watching live"
+  }
+}
