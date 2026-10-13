@@ -1,0 +1,470 @@
+{
+  "triggers": [
+    {
+      "id": "motion_started",
+      "title": {
+        "en": "Motion started"
+      },
+      "hint": {
+        "en": "The camera saw motion. Comes with a picture."
+      },
+      "tokens": [
+        {
+          "name": "image",
+          "type": "image",
+          "title": {
+            "en": "Picture"
+          }
+        }
+      ]
+    },
+    {
+      "id": "motion_stopped",
+      "title": {
+        "en": "Motion stopped"
+      }
+    },
+    {
+      "id": "analytics_triggered",
+      "title": {
+        "en": "Object Analytics saw something"
+      },
+      "titleFormatted": {
+        "en": "Object Analytics scenario [[scenario]] triggered"
+      },
+      "hint": {
+        "en": "A scenario set up in AXIS Object Analytics on the camera, for example a person in the driveway."
+      },
+      "args": [
+        {
+          "name": "scenario",
+          "type": "autocomplete",
+          "title": {
+            "en": "Scenario"
+          },
+          "placeholder": {
+            "en": "Any scenario"
+          }
+        }
+      ],
+      "tokens": [
+        {
+          "name": "scenario",
+          "type": "string",
+          "title": {
+            "en": "Scenario"
+          },
+          "example": {
+            "en": "Driveway"
+          }
+        },
+        {
+          "name": "object",
+          "type": "string",
+          "title": {
+            "en": "Object"
+          },
+          "example": {
+            "en": "human"
+          }
+        },
+        {
+          "name": "image",
+          "type": "image",
+          "title": {
+            "en": "Picture"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tampering_detected",
+      "title": {
+        "en": "Camera was tampered with"
+      },
+      "hint": {
+        "en": "The camera was covered, moved or spray-painted (tampering detection must be on in the camera)."
+      },
+      "tokens": [
+        {
+          "name": "image",
+          "type": "image",
+          "title": {
+            "en": "Picture"
+          }
+        }
+      ]
+    },
+    {
+      "id": "day_night_changed",
+      "title": {
+        "en": "Day/night mode changed"
+      },
+      "tokens": [
+        {
+          "name": "night",
+          "type": "boolean",
+          "title": {
+            "en": "Night mode"
+          },
+          "example": true
+        }
+      ]
+    },
+    {
+      "id": "input_changed",
+      "title": {
+        "en": "An input changed"
+      },
+      "titleFormatted": {
+        "en": "Input [[port]] changed"
+      },
+      "hint": {
+        "en": "A digital input on the camera (for example a door contact wired to it) or a virtual input changed."
+      },
+      "args": [
+        {
+          "name": "port",
+          "type": "number",
+          "title": {
+            "en": "Input number (0 = any)"
+          },
+          "placeholder": {
+            "en": "1"
+          },
+          "min": 0,
+          "max": 64
+        }
+      ],
+      "tokens": [
+        {
+          "name": "port",
+          "type": "number",
+          "title": {
+            "en": "Input number"
+          },
+          "example": 1
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "title": {
+            "en": "Active"
+          },
+          "example": true
+        },
+        {
+          "name": "virtual",
+          "type": "boolean",
+          "title": {
+            "en": "Virtual input"
+          },
+          "example": false
+        }
+      ]
+    },
+    {
+      "id": "audio_detected",
+      "title": {
+        "en": "Sound detected"
+      },
+      "hint": {
+        "en": "The camera's audio detection heard a sound above its trigger level."
+      }
+    },
+    {
+      "id": "event_received",
+      "title": {
+        "en": "Any camera event"
+      },
+      "hint": {
+        "en": "For advanced use: every event the app listens to, with its name and details."
+      },
+      "tokens": [
+        {
+          "name": "topic",
+          "type": "string",
+          "title": {
+            "en": "Event"
+          },
+          "example": {
+            "en": "VideoSource/MotionAlarm"
+          }
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "title": {
+            "en": "Active"
+          },
+          "example": true
+        },
+        {
+          "name": "details",
+          "type": "string",
+          "title": {
+            "en": "Details"
+          },
+          "example": {
+            "en": "{\"State\":\"1\"}"
+          }
+        }
+      ]
+    }
+  ],
+  "conditions": [
+    {
+      "id": "is_night",
+      "title": {
+        "en": "Is !{{|not}} in night mode"
+      }
+    },
+    {
+      "id": "input_active",
+      "title": {
+        "en": "Input is !{{|not}} active"
+      },
+      "titleFormatted": {
+        "en": "Input [[port]] is !{{|not}} active"
+      },
+      "args": [
+        {
+          "name": "port",
+          "type": "number",
+          "title": {
+            "en": "Input number"
+          },
+          "placeholder": {
+            "en": "1"
+          },
+          "min": 1,
+          "max": 64
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "take_snapshot",
+      "title": {
+        "en": "Take a picture"
+      },
+      "hint": {
+        "en": "Gives a picture you can send in a notification."
+      },
+      "tokens": [
+        {
+          "name": "image",
+          "type": "image",
+          "title": {
+            "en": "Picture"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ptz_goto_preset",
+      "title": {
+        "en": "Move to a preset position"
+      },
+      "titleFormatted": {
+        "en": "Move to preset [[preset]]"
+      },
+      "hint": {
+        "en": "For PTZ cameras: move to a preset position saved in the camera."
+      },
+      "args": [
+        {
+          "name": "preset",
+          "type": "autocomplete",
+          "title": {
+            "en": "Preset"
+          },
+          "placeholder": {
+            "en": "Gate"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ptz_home",
+      "title": {
+        "en": "Move to the home position"
+      },
+      "hint": {
+        "en": "For PTZ cameras."
+      }
+    },
+    {
+      "id": "set_light",
+      "title": {
+        "en": "Set the camera's light"
+      },
+      "titleFormatted": {
+        "en": "Set the light [[state]]"
+      },
+      "hint": {
+        "en": "The camera's IR or white light. Needs an operator or administrator account."
+      },
+      "args": [
+        {
+          "name": "state",
+          "type": "dropdown",
+          "title": {
+            "en": "Light"
+          },
+          "values": [
+            {
+              "id": "on",
+              "label": {
+                "en": "on"
+              }
+            },
+            {
+              "id": "off",
+              "label": {
+                "en": "off"
+              }
+            },
+            {
+              "id": "auto",
+              "label": {
+                "en": "automatic (follows day/night)"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "virtual_input",
+      "title": {
+        "en": "Set a virtual input"
+      },
+      "titleFormatted": {
+        "en": "[[action]] virtual input [[port]] for [[duration]] seconds"
+      },
+      "hint": {
+        "en": "Virtual inputs start the camera's own action rules, for example recording to its SD card. Seconds are only used for 'Pulse'."
+      },
+      "args": [
+        {
+          "name": "action",
+          "type": "dropdown",
+          "title": {
+            "en": "Action"
+          },
+          "values": [
+            {
+              "id": "activate",
+              "label": {
+                "en": "Activate"
+              }
+            },
+            {
+              "id": "deactivate",
+              "label": {
+                "en": "Deactivate"
+              }
+            },
+            {
+              "id": "pulse",
+              "label": {
+                "en": "Pulse"
+              }
+            }
+          ]
+        },
+        {
+          "name": "port",
+          "type": "number",
+          "title": {
+            "en": "Virtual input"
+          },
+          "placeholder": {
+            "en": "1"
+          },
+          "min": 1,
+          "max": 64
+        },
+        {
+          "name": "duration",
+          "type": "number",
+          "title": {
+            "en": "Seconds"
+          },
+          "placeholder": {
+            "en": "5"
+          },
+          "min": 0,
+          "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "set_output",
+      "title": {
+        "en": "Set an output"
+      },
+      "titleFormatted": {
+        "en": "[[action]] output [[port]] for [[duration]] seconds"
+      },
+      "hint": {
+        "en": "A digital output on the camera, for example a relay that opens a gate. Seconds are only used for 'Pulse'."
+      },
+      "args": [
+        {
+          "name": "action",
+          "type": "dropdown",
+          "title": {
+            "en": "Action"
+          },
+          "values": [
+            {
+              "id": "activate",
+              "label": {
+                "en": "Activate"
+              }
+            },
+            {
+              "id": "deactivate",
+              "label": {
+                "en": "Deactivate"
+              }
+            },
+            {
+              "id": "pulse",
+              "label": {
+                "en": "Pulse"
+              }
+            }
+          ]
+        },
+        {
+          "name": "port",
+          "type": "number",
+          "title": {
+            "en": "Output"
+          },
+          "placeholder": {
+            "en": "1"
+          },
+          "min": 1,
+          "max": 64
+        },
+        {
+          "name": "duration",
+          "type": "number",
+          "title": {
+            "en": "Seconds"
+          },
+          "placeholder": {
+            "en": "1"
+          },
+          "min": 0,
+          "max": 3600
+        }
+      ]
+    }
+  ]
+}

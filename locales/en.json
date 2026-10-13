@@ -1,0 +1,37 @@
+{
+  "errors": {
+    "unreachable": "The camera did not answer. Check that it is on and on the same network as Homey.",
+    "login_failed": "The camera did not accept the username or password. Tap Repair on the device to type them again.",
+    "forbidden": "The camera user may not do this. Give the user Operator rights in the camera (Settings > System > Users).",
+    "cert_changed": "Another device answers at this camera's address (its security certificate changed). Check the address in the device settings.",
+    "not_supported": "This camera does not have this function, or its AXIS OS is too old for it.",
+    "bad_response": "The camera gave an answer the app could not read.",
+    "too_many_streams": "Too many cameras are being watched at once. Close one and try again.",
+    "no_picture": "The camera did not send a picture.",
+    "bad_address": "Type the camera's address without http:// or slashes, for example 192.168.1.20."
+  },
+  "pair": {
+    "noUsername": "Type the camera's username.",
+    "loginRefused": "__n__ camera(s) did not accept this username or password. Check them and try again."
+  },
+  "device": {
+    "snapshot": "Picture",
+    "live": "Live"
+  },
+  "flow": {
+    "anyScenario": "Any scenario"
+  },
+  "settings": {
+    "title": "Cameras for AXIS",
+    "subtitle": "Your cameras and diagnostics.",
+    "cameras": "Cameras",
+    "noCameras": "No cameras yet. Add one with + > Cameras for AXIS.",
+    "online": "Connected",
+    "offline": "Not connected",
+    "eventsOn": "receiving events",
+    "eventsOff": "no events",
+    "diagnosticsTitle": "Diagnostics",
+    "diagnostics": "Keep a diagnostic log",
+    "diagnosticsHint": "Only switch this on when you are asked to, for example to report a problem. The log stays on your Homey."
+  }
+}

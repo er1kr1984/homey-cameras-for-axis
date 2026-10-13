@@ -1,0 +1,185 @@
+[
+  {
+    "type": "group",
+    "label": {
+      "en": "Connection"
+    },
+    "children": [
+      {
+        "id": "address",
+        "type": "text",
+        "label": {
+          "en": "Camera address"
+        },
+        "value": "",
+        "hint": {
+          "en": "The camera's IP address on your network, for example 192.168.1.20. The app updates it by itself when the camera gets a new address."
+        }
+      },
+      {
+        "id": "use_https",
+        "type": "checkbox",
+        "label": {
+          "en": "Use HTTPS"
+        },
+        "value": true,
+        "hint": {
+          "en": "Keep this on. Only switch it off for old cameras that have no HTTPS."
+        }
+      },
+      {
+        "id": "rtsp_port",
+        "type": "number",
+        "label": {
+          "en": "Video (RTSP) port"
+        },
+        "value": 554,
+        "min": 1,
+        "max": 65535,
+        "hint": {
+          "en": "Leave at 554 unless you changed the RTSP port in the camera."
+        }
+      }
+    ]
+  },
+  {
+    "type": "group",
+    "label": {
+      "en": "Video and pictures"
+    },
+    "children": [
+      {
+        "id": "quality",
+        "type": "dropdown",
+        "label": {
+          "en": "Live video quality"
+        },
+        "value": "medium",
+        "hint": {
+          "en": "Low (up to 640 pixels wide) is lightest for Homey. Automatic starts at Medium and steps down when Homey gets busy."
+        },
+        "values": [
+          {
+            "id": "low",
+            "label": {
+              "en": "Low"
+            }
+          },
+          {
+            "id": "medium",
+            "label": {
+              "en": "Medium"
+            }
+          },
+          {
+            "id": "high",
+            "label": {
+              "en": "High"
+            }
+          },
+          {
+            "id": "auto",
+            "label": {
+              "en": "Automatic"
+            }
+          }
+        ]
+      },
+      {
+        "id": "snapshot_size",
+        "type": "dropdown",
+        "label": {
+          "en": "Picture size"
+        },
+        "value": "medium",
+        "hint": {
+          "en": "Size of the camera picture and of pictures sent with flows."
+        },
+        "values": [
+          {
+            "id": "small",
+            "label": {
+              "en": "Small (640 pixels wide)"
+            }
+          },
+          {
+            "id": "medium",
+            "label": {
+              "en": "Medium (1280 pixels wide)"
+            }
+          },
+          {
+            "id": "full",
+            "label": {
+              "en": "Full size"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "group",
+    "label": {
+      "en": "Motion"
+    },
+    "children": [
+      {
+        "id": "motion_hold",
+        "type": "number",
+        "label": {
+          "en": "Keep motion on for (seconds)"
+        },
+        "value": 10,
+        "min": 0,
+        "max": 600,
+        "hint": {
+          "en": "How long the motion alarm stays on after the camera stops seeing motion. Example: 30 keeps it on for half a minute."
+        }
+      },
+      {
+        "id": "analytics_motion",
+        "type": "checkbox",
+        "label": {
+          "en": "Object Analytics also turns on motion"
+        },
+        "value": true,
+        "hint": {
+          "en": "When on, a person or vehicle seen by AXIS Object Analytics also turns on the motion alarm."
+        }
+      }
+    ]
+  },
+  {
+    "type": "group",
+    "label": {
+      "en": "About this camera"
+    },
+    "children": [
+      {
+        "id": "model",
+        "type": "label",
+        "label": {
+          "en": "Model"
+        },
+        "value": ""
+      },
+      {
+        "id": "serial",
+        "type": "label",
+        "label": {
+          "en": "Serial number"
+        },
+        "value": ""
+      },
+      {
+        "id": "firmware",
+        "type": "label",
+        "label": {
+          "en": "AXIS OS"
+        },
+        "value": ""
+      }
+    ]
+  }
+]

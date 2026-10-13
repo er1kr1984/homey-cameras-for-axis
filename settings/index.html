@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+  <style>
+    .cam { padding: 10px 0; border-bottom: 1px solid rgba(127,127,127,.2); }
+    .cam:last-child { border-bottom: 0; }
+    .cam h3 { margin: 0 0 2px; font-size: 15px; }
+    .meta { font-size: 12px; opacity: .7; }
+    .state { font-size: 12px; font-weight: 600; }
+    .state.ok { color: #2fb86a; }
+    .state.bad { color: #e5484d; }
+  </style>
+</head>
+<body>
+  <header class="homey-header">
+    <h1 class="homey-title" data-i18n="settings.title"></h1>
+    <p class="homey-subtitle" data-i18n="settings.subtitle"></p>
+  </header>
+
+  <fieldset class="homey-form-fieldset">
+    <legend class="homey-form-legend" data-i18n="settings.cameras"></legend>
+    <div id="cameras"></div>
+    <p class="homey-form-hint" id="noCameras" hidden data-i18n="settings.noCameras"></p>
+  </fieldset>
+
+  <fieldset class="homey-form-fieldset">
+    <legend class="homey-form-legend" data-i18n="settings.diagnosticsTitle"></legend>
+    <label class="homey-form-checkbox">
+      <input class="homey-form-checkbox-input" type="checkbox" id="diagnostics" />
+      <span class="homey-form-checkbox-checkmark"></span>
+      <span class="homey-form-checkbox-text" data-i18n="settings.diagnostics"></span>
+    </label>
+    <p class="homey-form-hint" data-i18n="settings.diagnosticsHint"></p>
+  </fieldset>
+
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      var el = function (id) { return document.getElementById(id); };
+      var call = function (method, path, body) {
+        return new Promise(function (resolve, reject) {
+          Homey.api(method, path, body || {}, function (err, result) {
+            if (err) reject(err); else resolve(result);
+          });
+        });
+      };
+
+      function render(state) {
+        var list = el('cameras');
+        list.textContent = '';
+        el('noCameras').hidden = state.cameras.length > 0;
+        state.cameras.forEach(function (c) {
+          var box = document.createElement('div');
+          box.className = 'cam';
+          var h = document.createElement('h3');
+          h.textContent = c.name;
+          var meta = document.createElement('div');
+          meta.className = 'meta';
+          meta.textContent = [c.address, c.model, c.firmware ? 'AXIS OS ' + c.firmware : ''].filter(Boolean).join(' · ');
+          var st = document.createElement('div');
+          st.className = 'state ' + (c.available ? 'ok' : 'bad');
+          st.textContent = (c.available ? Homey.__('settings.online') : Homey.__('settings.offline'))
+            + ' · ' + (c.events ? Homey.__('settings.eventsOn') : Homey.__('settings.eventsOff'));
+          box.appendChild(h);
+          box.appendChild(meta);
+          box.appendChild(st);
+          list.appendChild(box);
+        });
+        el('diagnostics').checked = !!state.diagnostics;
+      }
+
+      el('diagnostics').addEventListener('change', function () {
+        call('POST', '/diagnostics', { on: el('diagnostics').checked }).catch(function () {});
+      });
+
+      call('GET', '/settings').then(render).catch(function () {}).then(function () { Homey.ready(); });
+    }
+  </script>
+</body>
+</html>

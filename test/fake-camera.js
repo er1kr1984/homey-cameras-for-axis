@@ -1,0 +1,355 @@
+'use strict';
+
+// A fake Axis camera for tests, written from the VAPIX documentation:
+//   HTTP  basicdeviceinfo, apidiscovery, param.cgi, jpg/image.cgi, ptz.cgi,
+//         lightcontrol.cgi, virtualinput, io/port.cgi, /vapix/services (GetEventInstances),
+//         wssession.cgi, and the WebSocket event stream /vapix/ws-data-stream
+//   RTSP  DESCRIBE/SETUP/PLAY/GET_PARAMETER/SET_PARAMETER/TEARDOWN with RTP over TCP
+// Everything except the anonymous calls needs Digest login (MD5, qop=auth).
+
+const http = require('node:http');
+const net = require('node:net');
+const crypto = require('node:crypto');
+const WebSocket = require('ws');
+
+const REALM = 'AXIS_ACCC8E000001';
+const SERIAL = 'ACCC8E000001';
+const md5 = (s) => crypto.createHash('md5').update(s).digest('hex');
+
+// Parameter sets of a 640x360 Baseline stream (any valid-looking bytes do for the tests).
+const SPS = Buffer.from('6742c01e95a02805bb011000003e90000ea60e8c008aa', 'hex');
+const PPS = Buffer.from('68ce3c80', 'hex');
+
+const EVENT_INSTANCES = `<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:wstop="http://docs.oasis-open.org/wsn/t-1" xmlns:aev="http://www.axis.com/vapix/ws/event1" xmlns:tns1="http://www.onvif.org/ver10/topics" xmlns:tnsaxis="http://www.axis.com/2009/event/topics">
+<SOAP-ENV:Body><aev:GetEventInstancesResponse><wstop:TopicSet>
+<tns1:VideoSource>
+  <MotionAlarm wstop:topic="true"><aev:MessageInstance aev:isProperty="true">
+    <aev:SourceInstance><aev:SimpleItemInstance Type="tt:ReferenceToken" Name="Source"><aev:Value>0</aev:Value></aev:SimpleItemInstance></aev:SourceInstance>
+    <aev:DataInstance><aev:SimpleItemInstance Type="xsd:boolean" Name="State" isPropertyState="true"/></aev:DataInstance>
+  </aev:MessageInstance></MotionAlarm>
+  <tnsaxis:Tampering wstop:topic="true" aev:NiceName="Camera tampering"><aev:MessageInstance>
+    <aev:DataInstance><aev:SimpleItemInstance Type="xsd:int" Name="tampering"/></aev:DataInstance>
+  </aev:MessageInstance></tnsaxis:Tampering>
+  <tnsaxis:DayNightVision wstop:topic="true" aev:NiceName="Day night vision"><aev:MessageInstance aev:isProperty="true">
+    <aev:DataInstance><aev:SimpleItemInstance Type="xsd:boolean" Name="day" isPropertyState="true"/></aev:DataInstance>
+  </aev:MessageInstance></tnsaxis:DayNightVision>
+</tns1:VideoSource>
+<tnsaxis:CameraApplicationPlatform>
+  <ObjectAnalytics aev:NiceName="Object Analytics">
+    <Device1Scenario1 wstop:topic="true" aev:NiceName="Driveway"><aev:MessageInstance aev:isProperty="true">
+      <aev:DataInstance><aev:SimpleItemInstance Type="xsd:boolean" Name="active" isPropertyState="true"/></aev:DataInstance>
+    </aev:MessageInstance></Device1Scenario1>
+    <Device1ScenarioANY wstop:topic="true" aev:NiceName="Any scenario"><aev:MessageInstance aev:isProperty="true">
+      <aev:DataInstance><aev:SimpleItemInstance Type="xsd:boolean" Name="active" isPropertyState="true"/></aev:DataInstance>
+    </aev:MessageInstance></Device1ScenarioANY>
+  </ObjectAnalytics>
+</tnsaxis:CameraApplicationPlatform>
+<tns1:Device>
+  <tnsaxis:IO>
+    <Port wstop:topic="true" aev:NiceName="Digital input port"><aev:MessageInstance aev:isProperty="true">
+      <aev:SourceInstance><aev:SimpleItemInstance Type="xsd:int" Name="port"><aev:Value>1</aev:Value></aev:SimpleItemInstance></aev:SourceInstance>
+      <aev:DataInstance><aev:SimpleItemInstance Type="xsd:boolean" Name="state" isPropertyState="true"/></aev:DataInstance>
+    </aev:MessageInstance></Port>
+  </tnsaxis:IO>
+  <tnsaxis:Status><SystemReady wstop:topic="true"><aev:MessageInstance aev:isProperty="true">
+    <aev:DataInstance><aev:SimpleItemInstance Type="xsd:boolean" Name="ready" isPropertyState="true"/></aev:DataInstance>
+  </aev:MessageInstance></SystemReady></tnsaxis:Status>
+</tns1:Device>
+</wstop:TopicSet></aev:GetEventInstancesResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>`;
+
+function parseAuth(header) {
+  const m = /^Digest\s+(.*)$/i.exec(header || '');
+  if (!m) return null;
+  const out = {};
+  for (const p of m[1].matchAll(/(\w+)=(?:"([^"]*)"|([^,\s]*))/g)) out[p[1]] = p[2] !== undefined ? p[2] : p[3];
+  return out;
+}
+
+class FakeCamera {
+  constructor({ username = 'homey', password = 'secret', rtspFps = 25 } = {}) {
+    this.username = username;
+    this.password = password;
+    this.rtspFps = rtspFps;
+    this.nonce = crypto.randomBytes(8).toString('hex');
+    this.calls = [];
+    this.wsTokens = new Set();
+    this.wsClients = new Set();
+    this.lastConfigure = null;
+    this.keyframeRequests = 0;
+    this.rtspSessions = new Set();
+  }
+
+  _authorized(method, uri, header) {
+    const a = parseAuth(header);
+    if (!a || a.username !== this.username || a.nonce !== this.nonce) return false;
+    const ha1 = md5(`${a.username}:${REALM}:${this.password}`);
+    const ha2 = md5(`${method}:${a.uri}`);
+    const expected = a.qop
+      ? md5(`${ha1}:${a.nonce}:${a.nc}:${a.cnonce}:${a.qop}:${ha2}`)
+      : md5(`${ha1}:${a.nonce}:${ha2}`);
+    return a.response === expected && a.uri === uri;
+  }
+
+  _challenge() {
+    return `Digest realm="${REALM}", nonce="${this.nonce}", algorithm=MD5, qop="auth"`;
+  }
+
+  async start() {
+    this.http = http.createServer((req, res) => this._onHttp(req, res));
+    this.wss = new WebSocket.Server({ noServer: true });
+    this.http.on('upgrade', (req, socket, head) => {
+      const url = new URL(req.url, 'http://x');
+      const token = url.searchParams.get('wssession');
+      if (url.pathname !== '/vapix/ws-data-stream' || !this.wsTokens.has(token)) {
+        socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        return;
+      }
+      this.wsTokens.delete(token);
+      this.wss.handleUpgrade(req, socket, head, (ws) => this._onWs(ws));
+    });
+    await new Promise((r) => this.http.listen(0, '127.0.0.1', r));
+    this.httpPort = this.http.address().port;
+    this.rtsp = net.createServer((s) => this._onRtsp(s));
+    await new Promise((r) => this.rtsp.listen(0, '127.0.0.1', r));
+    this.rtspPort = this.rtsp.address().port;
+    return this;
+  }
+
+  async stop() {
+    for (const ws of this.wsClients) ws.terminate();
+    for (const s of this.rtspSessions) s.destroy();
+    this.http.closeAllConnections();
+    await new Promise((r) => this.wss.close(r));
+    await new Promise((r) => this.http.close(r));
+    await new Promise((r) => this.rtsp.close(r));
+  }
+
+  // ---- HTTP ----
+
+  _onHttp(req, res) {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const body = Buffer.concat(chunks).toString('utf8');
+      const url = new URL(req.url, 'http://x');
+      this.calls.push(`${req.method} ${url.pathname}${url.search}`);
+      const json = () => { try { return JSON.parse(body); } catch (e) { return {}; } };
+      // Anonymous calls.
+      if (url.pathname === '/axis-cgi/basicdeviceinfo.cgi' && json().method === 'getAllUnrestrictedProperties') {
+        return this._json(res, { propertyList: { ProdNbr: 'M1065-L', ProdFullName: 'AXIS M1065-L Network Camera', ProdType: 'Network Camera', SerialNumber: SERIAL, Version: '11.11.1' } });
+      }
+      if (!this._authorized(req.method, req.url, req.headers.authorization)) {
+        res.writeHead(401, { 'WWW-Authenticate': this._challenge() });
+        return res.end();
+      }
+      switch (url.pathname) {
+        case '/axis-cgi/basicdeviceinfo.cgi':
+          return this._json(res, { propertyList: { ProdNbr: 'M1065-L', ProdFullName: 'AXIS M1065-L Network Camera', ProdType: 'Network Camera', SerialNumber: SERIAL, Version: '11.11.1', Architecture: 'armv7hf' } });
+        case '/axis-cgi/apidiscovery.cgi':
+          return this._json(res, { apiList: [{ id: 'light-control', version: '1.1' }, { id: 'basic-device-info', version: '1.2' }] });
+        case '/axis-cgi/param.cgi': {
+          const group = url.searchParams.get('group');
+          if (group === 'Properties') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('root.Properties.PTZ.PTZ=yes\nroot.Properties.Image.Resolution=1920x1080,1280x720,800x450,640x360,320x180\n'
+              + 'root.Properties.Image.Format=jpeg,mjpeg,h264\nroot.Properties.VirtualInput.VirtualInput=yes\nroot.Properties.LightControl.LightControl2=yes\n');
+          }
+          if (group === 'Input,Output') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('root.Input.NbrOfInputs=1\nroot.Output.NbrOfOutputs=1\n');
+          }
+          res.writeHead(200);
+          return res.end('# Error: Error -1 getting param in group');
+        }
+        case '/axis-cgi/jpg/image.cgi':
+          this.lastSnapshot = url.searchParams.get('resolution');
+          res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+          return res.end(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0xff, 0xd9]));
+        case '/vapix/services':
+          res.writeHead(200, { 'Content-Type': 'application/soap+xml' });
+          return res.end(EVENT_INSTANCES);
+        case '/axis-cgi/wssession.cgi': {
+          const token = crypto.randomBytes(6).toString('hex');
+          this.wsTokens.add(token);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ apiVersion: '1.0', method: 'wssession', data: { wssession: token } }));
+        }
+        case '/axis-cgi/com/ptz.cgi':
+          if (url.searchParams.get('query') === 'presetposcam') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('Preset Positions for camera 1\npresetposno1=Home\npresetposno2=Gate\n');
+          }
+          this.lastPtz = url.search;
+          res.writeHead(204);
+          return res.end();
+        case '/axis-cgi/lightcontrol.cgi': {
+          const { method, params } = json();
+          this.lastLight = { method, params };
+          if (method === 'getLightInformation') return this._json(res, { items: [{ lightID: 'led0', lightType: 'IR', enabled: true }] });
+          return this._json(res, {});
+        }
+        case '/axis-cgi/virtualinput/activate.cgi':
+        case '/axis-cgi/virtualinput/deactivate.cgi':
+          this.lastVirtual = url.pathname + url.search;
+          res.writeHead(200, { 'Content-Type': 'text/xml' });
+          return res.end('<?xml version="1.0"?><VirtualInputResponse SchemaVersion="1.1"><Success><ActivateSuccess><StateChanged>true</StateChanged></ActivateSuccess></Success></VirtualInputResponse>');
+        case '/axis-cgi/io/port.cgi':
+          this.lastPort = url.search;
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          return res.end(url.searchParams.get('check') ? 'port1=1\n' : 'OK');
+        default:
+          res.writeHead(404);
+          return res.end();
+      }
+    });
+  }
+
+  _json(res, data) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ apiVersion: '1.0', context: 'homey', data }));
+  }
+
+  // ---- WebSocket events ----
+
+  _onWs(ws) {
+    this.wsClients.add(ws);
+    ws.on('close', () => this.wsClients.delete(ws));
+    ws.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.method === 'events:configure') {
+        this.lastConfigure = msg.params;
+        ws.send(JSON.stringify({ apiVersion: '1.0', context: msg.context, method: 'events:configure', data: {} }));
+      }
+    });
+  }
+
+  // Sends an event to every connected event stream.
+  emitEvent(topic, { source = {}, data = {} } = {}) {
+    const msg = JSON.stringify({
+      apiVersion: '1.0',
+      method: 'events:notify',
+      params: { notification: { timestamp: Date.now(), topic, message: { source, key: {}, data } } },
+    });
+    for (const ws of this.wsClients) ws.send(msg);
+  }
+
+  // ---- RTSP ----
+
+  _onRtsp(socket) {
+    this.rtspSessions.add(socket);
+    socket.on('close', () => this.rtspSessions.delete(socket));
+    socket.on('error', () => {});
+    let buf = '';
+    socket.on('data', (chunk) => {
+      buf += chunk.toString('latin1');
+      for (;;) {
+        const end = buf.indexOf('\r\n\r\n');
+        if (end < 0) return;
+        const head = buf.slice(0, end);
+        const lines = head.split('\r\n');
+        const headers = {};
+        for (const l of lines.slice(1)) {
+          const i = l.indexOf(':');
+          headers[l.slice(0, i).toLowerCase()] = l.slice(i + 1).trim();
+        }
+        const len = Number(headers['content-length'] || 0);
+        if (buf.length < end + 4 + len) return;
+        const body = buf.slice(end + 4, end + 4 + len);
+        buf = buf.slice(end + 4 + len);
+        this._rtspRequest(socket, lines[0], headers, body);
+      }
+    });
+  }
+
+  _rtspRequest(socket, line, headers, body) {
+    const [method, uri] = line.split(' ');
+    const cseq = headers.cseq;
+    const reply = (status, extra = {}, content = '') => {
+      const out = [`RTSP/1.0 ${status}`, `CSeq: ${cseq}`];
+      for (const [k, v] of Object.entries(extra)) out.push(`${k}: ${v}`);
+      if (content) out.push(`Content-Length: ${Buffer.byteLength(content)}`);
+      socket.write(`${out.join('\r\n')}\r\n\r\n${content}`);
+    };
+    if (!this._authorized(method, uri, headers.authorization)) {
+      reply('401 Unauthorized', { 'WWW-Authenticate': this._challenge() });
+      return;
+    }
+    const base = uri.split('?')[0];
+    if (method === 'DESCRIBE') {
+      this.lastDescribe = uri;
+      const sdp = [
+        'v=0', 'o=- 1 1 IN IP4 127.0.0.1', 's=Session streamed with GStreamer', 't=0 0', 'a=control:*',
+        'm=video 0 RTP/AVP 96', 'a=rtpmap:96 H264/90000',
+        `a=fmtp:96 packetization-mode=1;profile-level-id=42c01e;sprop-parameter-sets=${SPS.toString('base64')},${PPS.toString('base64')}`,
+        'a=control:stream=0',
+      ].join('\r\n');
+      reply('200 OK', { 'Content-Base': `${uri}/`, 'Content-Type': 'application/sdp' }, `${sdp}\r\n`);
+    } else if (method === 'SETUP') {
+      this.lastSetup = { uri, transport: headers.transport };
+      reply('200 OK', { Session: '12345678;timeout=60', Transport: 'RTP/AVP/TCP;unicast;interleaved=0-1' });
+    } else if (method === 'PLAY') {
+      reply('200 OK', { Session: '12345678' });
+      this._startRtp(socket);
+    } else if (method === 'SET_PARAMETER') {
+      if (/Renew-Stream:\s*yes/i.test(body)) {
+        this.keyframeRequests += 1;
+        socket.forceKeyframe = true;
+      }
+      reply('200 OK', { Session: '12345678' });
+    } else if (method === 'GET_PARAMETER' || method === 'OPTIONS') {
+      reply('200 OK', { Session: '12345678' });
+    } else if (method === 'TEARDOWN') {
+      this.teardowns = (this.teardowns || 0) + 1;
+      reply('200 OK');
+      clearInterval(socket.rtpTimer);
+    } else {
+      reply('405 Method Not Allowed');
+    }
+    void base;
+  }
+
+  // H.264 over RTP: a keyframe (IDR, FU-A in 3 fragments, NO SPS/PPS in-band, like many
+  // Axis streams) every 25 frames, P slices in between. One frame per tick.
+  _startRtp(socket) {
+    let seq = 1000;
+    let ts = 0;
+    let frame = 0;
+    const ssrc = 0x11223344;
+    const send = (payload, marker) => {
+      const h = Buffer.alloc(12);
+      h[0] = 0x80;
+      h[1] = (marker ? 0x80 : 0) | 96;
+      h.writeUInt16BE(seq & 0xffff, 2);
+      h.writeUInt32BE(ts >>> 0, 4);
+      h.writeUInt32BE(ssrc, 8);
+      seq += 1;
+      const pkt = Buffer.concat([h, payload]);
+      const frameHead = Buffer.from([0x24, 0, 0, 0]);
+      frameHead.writeUInt16BE(pkt.length, 2);
+      if (!socket.destroyed) socket.write(Buffer.concat([frameHead, pkt]));
+    };
+    socket.rtpTimer = setInterval(() => {
+      const key = frame % 25 === 0 || socket.forceKeyframe;
+      socket.forceKeyframe = false;
+      if (key) {
+        const nal = Buffer.concat([Buffer.from([0x65]), crypto.randomBytes(2400)]);
+        const body = nal.subarray(1);
+        const parts = [body.subarray(0, 800), body.subarray(800, 1600), body.subarray(1600)];
+        parts.forEach((part, i) => {
+          const fuHeader = (i === 0 ? 0x80 : 0) | (i === parts.length - 1 ? 0x40 : 0) | 5;
+          send(Buffer.concat([Buffer.from([0x7c, fuHeader]), part]), i === parts.length - 1);
+        });
+      } else {
+        send(Buffer.concat([Buffer.from([0x41]), crypto.randomBytes(300)]), true);
+      }
+      frame += 1;
+      ts += 90000 / this.rtspFps;
+    }, 1000 / this.rtspFps);
+    socket.on('close', () => clearInterval(socket.rtpTimer));
+  }
+}
+
+module.exports = {
+  FakeCamera, SERIAL, SPS, PPS, EVENT_INSTANCES,
+};

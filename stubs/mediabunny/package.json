@@ -1,0 +1,7 @@
+{
+  "name": "mediabunny",
+  "version": "0.0.0-stub",
+  "description": "Empty stand-in: werift lists mediabunny (12 MB, media containers) but this app never loads it.",
+  "main": "index.js",
+  "license": "MIT"
+}

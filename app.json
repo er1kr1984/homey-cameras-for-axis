@@ -1,0 +1,928 @@
+{
+  "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
+  "id": "com.erikrichardson.axis",
+  "version": "0.1.0",
+  "compatibility": ">=12.7.0",
+  "runtime": "nodejs",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "brandColor": "#f2b705",
+  "name": {
+    "en": "Cameras for AXIS"
+  },
+  "description": {
+    "en": "Live video, motion and analytics from your AXIS cameras, straight from each camera."
+  },
+  "category": [
+    "security"
+  ],
+  "tags": {
+    "en": [
+      "axis",
+      "camera",
+      "vapix",
+      "live video",
+      "motion",
+      "object analytics",
+      "ptz"
+    ]
+  },
+  "permissions": [],
+  "author": {
+    "name": "Erik Richardson",
+    "email": "er1kr1984@gmail.com"
+  },
+  "api": {
+    "getSettingsState": {
+      "method": "GET",
+      "path": "/settings"
+    },
+    "setDiagnostics": {
+      "method": "POST",
+      "path": "/diagnostics"
+    },
+    "getLogs": {
+      "method": "GET",
+      "path": "/logs"
+    },
+    "getPreviousLogs": {
+      "method": "GET",
+      "path": "/previous-logs"
+    }
+  },
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "flow": {
+    "triggers": [
+      {
+        "id": "motion_started",
+        "title": {
+          "en": "Motion started"
+        },
+        "hint": {
+          "en": "The camera saw motion. Comes with a picture."
+        },
+        "tokens": [
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "motion_stopped",
+        "title": {
+          "en": "Motion stopped"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "analytics_triggered",
+        "title": {
+          "en": "Object Analytics saw something"
+        },
+        "titleFormatted": {
+          "en": "Object Analytics scenario [[scenario]] triggered"
+        },
+        "hint": {
+          "en": "A scenario set up in AXIS Object Analytics on the camera, for example a person in the driveway."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "scenario",
+            "type": "autocomplete",
+            "title": {
+              "en": "Scenario"
+            },
+            "placeholder": {
+              "en": "Any scenario"
+            }
+          }
+        ],
+        "tokens": [
+          {
+            "name": "scenario",
+            "type": "string",
+            "title": {
+              "en": "Scenario"
+            },
+            "example": {
+              "en": "Driveway"
+            }
+          },
+          {
+            "name": "object",
+            "type": "string",
+            "title": {
+              "en": "Object"
+            },
+            "example": {
+              "en": "human"
+            }
+          },
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ]
+      },
+      {
+        "id": "tampering_detected",
+        "title": {
+          "en": "Camera was tampered with"
+        },
+        "hint": {
+          "en": "The camera was covered, moved or spray-painted (tampering detection must be on in the camera)."
+        },
+        "tokens": [
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "day_night_changed",
+        "title": {
+          "en": "Day/night mode changed"
+        },
+        "tokens": [
+          {
+            "name": "night",
+            "type": "boolean",
+            "title": {
+              "en": "Night mode"
+            },
+            "example": true
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "input_changed",
+        "title": {
+          "en": "An input changed"
+        },
+        "titleFormatted": {
+          "en": "Input [[port]] changed"
+        },
+        "hint": {
+          "en": "A digital input on the camera (for example a door contact wired to it) or a virtual input changed."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "title": {
+              "en": "Input number (0 = any)"
+            },
+            "placeholder": {
+              "en": "1"
+            },
+            "min": 0,
+            "max": 64
+          }
+        ],
+        "tokens": [
+          {
+            "name": "port",
+            "type": "number",
+            "title": {
+              "en": "Input number"
+            },
+            "example": 1
+          },
+          {
+            "name": "active",
+            "type": "boolean",
+            "title": {
+              "en": "Active"
+            },
+            "example": true
+          },
+          {
+            "name": "virtual",
+            "type": "boolean",
+            "title": {
+              "en": "Virtual input"
+            },
+            "example": false
+          }
+        ]
+      },
+      {
+        "id": "audio_detected",
+        "title": {
+          "en": "Sound detected"
+        },
+        "hint": {
+          "en": "The camera's audio detection heard a sound above its trigger level."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "event_received",
+        "title": {
+          "en": "Any camera event"
+        },
+        "hint": {
+          "en": "For advanced use: every event the app listens to, with its name and details."
+        },
+        "tokens": [
+          {
+            "name": "topic",
+            "type": "string",
+            "title": {
+              "en": "Event"
+            },
+            "example": {
+              "en": "VideoSource/MotionAlarm"
+            }
+          },
+          {
+            "name": "active",
+            "type": "boolean",
+            "title": {
+              "en": "Active"
+            },
+            "example": true
+          },
+          {
+            "name": "details",
+            "type": "string",
+            "title": {
+              "en": "Details"
+            },
+            "example": {
+              "en": "{\"State\":\"1\"}"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "is_night",
+        "title": {
+          "en": "Is !{{|not}} in night mode"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "input_active",
+        "title": {
+          "en": "Input is !{{|not}} active"
+        },
+        "titleFormatted": {
+          "en": "Input [[port]] is !{{|not}} active"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "title": {
+              "en": "Input number"
+            },
+            "placeholder": {
+              "en": "1"
+            },
+            "min": 1,
+            "max": 64
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "take_snapshot",
+        "title": {
+          "en": "Take a picture"
+        },
+        "hint": {
+          "en": "Gives a picture you can send in a notification."
+        },
+        "tokens": [
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "ptz_goto_preset",
+        "title": {
+          "en": "Move to a preset position"
+        },
+        "titleFormatted": {
+          "en": "Move to preset [[preset]]"
+        },
+        "hint": {
+          "en": "For PTZ cameras: move to a preset position saved in the camera."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "preset",
+            "type": "autocomplete",
+            "title": {
+              "en": "Preset"
+            },
+            "placeholder": {
+              "en": "Gate"
+            }
+          }
+        ]
+      },
+      {
+        "id": "ptz_home",
+        "title": {
+          "en": "Move to the home position"
+        },
+        "hint": {
+          "en": "For PTZ cameras."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "set_light",
+        "title": {
+          "en": "Set the camera's light"
+        },
+        "titleFormatted": {
+          "en": "Set the light [[state]]"
+        },
+        "hint": {
+          "en": "The camera's IR or white light. Needs an operator or administrator account."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "title": {
+              "en": "Light"
+            },
+            "values": [
+              {
+                "id": "on",
+                "label": {
+                  "en": "on"
+                }
+              },
+              {
+                "id": "off",
+                "label": {
+                  "en": "off"
+                }
+              },
+              {
+                "id": "auto",
+                "label": {
+                  "en": "automatic (follows day/night)"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "virtual_input",
+        "title": {
+          "en": "Set a virtual input"
+        },
+        "titleFormatted": {
+          "en": "[[action]] virtual input [[port]] for [[duration]] seconds"
+        },
+        "hint": {
+          "en": "Virtual inputs start the camera's own action rules, for example recording to its SD card. Seconds are only used for 'Pulse'."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "action",
+            "type": "dropdown",
+            "title": {
+              "en": "Action"
+            },
+            "values": [
+              {
+                "id": "activate",
+                "label": {
+                  "en": "Activate"
+                }
+              },
+              {
+                "id": "deactivate",
+                "label": {
+                  "en": "Deactivate"
+                }
+              },
+              {
+                "id": "pulse",
+                "label": {
+                  "en": "Pulse"
+                }
+              }
+            ]
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "title": {
+              "en": "Virtual input"
+            },
+            "placeholder": {
+              "en": "1"
+            },
+            "min": 1,
+            "max": 64
+          },
+          {
+            "name": "duration",
+            "type": "number",
+            "title": {
+              "en": "Seconds"
+            },
+            "placeholder": {
+              "en": "5"
+            },
+            "min": 0,
+            "max": 3600
+          }
+        ]
+      },
+      {
+        "id": "set_output",
+        "title": {
+          "en": "Set an output"
+        },
+        "titleFormatted": {
+          "en": "[[action]] output [[port]] for [[duration]] seconds"
+        },
+        "hint": {
+          "en": "A digital output on the camera, for example a relay that opens a gate. Seconds are only used for 'Pulse'."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "action",
+            "type": "dropdown",
+            "title": {
+              "en": "Action"
+            },
+            "values": [
+              {
+                "id": "activate",
+                "label": {
+                  "en": "Activate"
+                }
+              },
+              {
+                "id": "deactivate",
+                "label": {
+                  "en": "Deactivate"
+                }
+              },
+              {
+                "id": "pulse",
+                "label": {
+                  "en": "Pulse"
+                }
+              }
+            ]
+          },
+          {
+            "name": "port",
+            "type": "number",
+            "title": {
+              "en": "Output"
+            },
+            "placeholder": {
+              "en": "1"
+            },
+            "min": 1,
+            "max": 64
+          },
+          {
+            "name": "duration",
+            "type": "number",
+            "title": {
+              "en": "Seconds"
+            },
+            "placeholder": {
+              "en": "1"
+            },
+            "min": 0,
+            "max": 3600
+          }
+        ]
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "name": {
+        "en": "Camera"
+      },
+      "class": "camera",
+      "capabilities": [
+        "alarm_motion",
+        "alarm_tamper",
+        "axis_night"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "lan"
+      ],
+      "discovery": "axis",
+      "images": {
+        "small": "/drivers/camera/assets/images/small.png",
+        "large": "/drivers/camera/assets/images/large.png",
+        "xlarge": "/drivers/camera/assets/images/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "login_credentials",
+          "template": "login_credentials",
+          "options": {
+            "title": {
+              "en": "Log in to your cameras"
+            },
+            "usernameLabel": {
+              "en": "Camera username"
+            },
+            "usernamePlaceholder": {
+              "en": "homey"
+            },
+            "passwordLabel": {
+              "en": "Password"
+            },
+            "passwordPlaceholder": {
+              "en": "Password"
+            }
+          },
+          "navigation": {
+            "next": "list_devices"
+          }
+        },
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "prev": "login_credentials",
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "repair": [
+        {
+          "id": "login_credentials",
+          "template": "login_credentials",
+          "options": {
+            "title": {
+              "en": "Log in to your cameras"
+            },
+            "usernameLabel": {
+              "en": "Camera username"
+            },
+            "usernamePlaceholder": {
+              "en": "homey"
+            },
+            "passwordLabel": {
+              "en": "Password"
+            },
+            "passwordPlaceholder": {
+              "en": "Password"
+            }
+          }
+        }
+      ],
+      "id": "camera",
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Connection"
+          },
+          "children": [
+            {
+              "id": "address",
+              "type": "text",
+              "label": {
+                "en": "Camera address"
+              },
+              "value": "",
+              "hint": {
+                "en": "The camera's IP address on your network, for example 192.168.1.20. The app updates it by itself when the camera gets a new address."
+              }
+            },
+            {
+              "id": "use_https",
+              "type": "checkbox",
+              "label": {
+                "en": "Use HTTPS"
+              },
+              "value": true,
+              "hint": {
+                "en": "Keep this on. Only switch it off for old cameras that have no HTTPS."
+              }
+            },
+            {
+              "id": "rtsp_port",
+              "type": "number",
+              "label": {
+                "en": "Video (RTSP) port"
+              },
+              "value": 554,
+              "min": 1,
+              "max": 65535,
+              "hint": {
+                "en": "Leave at 554 unless you changed the RTSP port in the camera."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Video and pictures"
+          },
+          "children": [
+            {
+              "id": "quality",
+              "type": "dropdown",
+              "label": {
+                "en": "Live video quality"
+              },
+              "value": "medium",
+              "hint": {
+                "en": "Low (up to 640 pixels wide) is lightest for Homey. Automatic starts at Medium and steps down when Homey gets busy."
+              },
+              "values": [
+                {
+                  "id": "low",
+                  "label": {
+                    "en": "Low"
+                  }
+                },
+                {
+                  "id": "medium",
+                  "label": {
+                    "en": "Medium"
+                  }
+                },
+                {
+                  "id": "high",
+                  "label": {
+                    "en": "High"
+                  }
+                },
+                {
+                  "id": "auto",
+                  "label": {
+                    "en": "Automatic"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "snapshot_size",
+              "type": "dropdown",
+              "label": {
+                "en": "Picture size"
+              },
+              "value": "medium",
+              "hint": {
+                "en": "Size of the camera picture and of pictures sent with flows."
+              },
+              "values": [
+                {
+                  "id": "small",
+                  "label": {
+                    "en": "Small (640 pixels wide)"
+                  }
+                },
+                {
+                  "id": "medium",
+                  "label": {
+                    "en": "Medium (1280 pixels wide)"
+                  }
+                },
+                {
+                  "id": "full",
+                  "label": {
+                    "en": "Full size"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Motion"
+          },
+          "children": [
+            {
+              "id": "motion_hold",
+              "type": "number",
+              "label": {
+                "en": "Keep motion on for (seconds)"
+              },
+              "value": 10,
+              "min": 0,
+              "max": 600,
+              "hint": {
+                "en": "How long the motion alarm stays on after the camera stops seeing motion. Example: 30 keeps it on for half a minute."
+              }
+            },
+            {
+              "id": "analytics_motion",
+              "type": "checkbox",
+              "label": {
+                "en": "Object Analytics also turns on motion"
+              },
+              "value": true,
+              "hint": {
+                "en": "When on, a person or vehicle seen by AXIS Object Analytics also turns on the motion alarm."
+              }
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "About this camera"
+          },
+          "children": [
+            {
+              "id": "model",
+              "type": "label",
+              "label": {
+                "en": "Model"
+              },
+              "value": ""
+            },
+            {
+              "id": "serial",
+              "type": "label",
+              "label": {
+                "en": "Serial number"
+              },
+              "value": ""
+            },
+            {
+              "id": "firmware",
+              "type": "label",
+              "label": {
+                "en": "AXIS OS"
+              },
+              "value": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "axis_night": {
+      "type": "boolean",
+      "title": {
+        "en": "Night mode"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Camera switched to night mode"
+      },
+      "insightsTitleFalse": {
+        "en": "Camera switched to day mode"
+      }
+    }
+  },
+  "discovery": {
+    "axis": {
+      "type": "mdns-sd",
+      "mdns-sd": {
+        "name": "axis-video",
+        "protocol": "tcp"
+      },
+      "id": "{{txt.macaddress}}"
+    }
+  }
+}

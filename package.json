@@ -1,0 +1,21 @@
+{
+  "name": "com.erikrichardson.axis",
+  "version": "0.1.0",
+  "license": "MIT",
+  "main": "app.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "werift": "^0.25.0",
+    "ws": "^8.22.0"
+  },
+  "scripts": {
+    "test": "node --test --test-force-exit test/*.test.js",
+    "postinstall": "node scripts/prune-modules.js"
+  },
+  "overrides": {
+    "mediabunny": "file:./stubs/mediabunny-0.0.0-stub.tgz"
+  }
+}
