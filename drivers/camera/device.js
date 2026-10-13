@@ -35,6 +35,8 @@ class CameraDevice extends Homey.Device {
     for (const cap of ['alarm_motion', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
       if (!this.hasCapability(cap)) await this.addCapability(cap).catch(this.error);
     }
+    // Alarms held by a timer don't survive a restart.
+    if (this.getCapabilityValue('alarm_tamper')) await this.setCapabilityValue('alarm_tamper', false).catch(this.error);
     this._makeClient();
     await this._attachImage().catch((err) => this.error('image:', err.message));
     await this._attachVideo().catch((err) => this.error('video:', err.message));
@@ -186,6 +188,9 @@ class CameraDevice extends Homey.Device {
     stream.on('connected', () => {
       // The first report of each thing after (re)connecting is its current state, not news.
       this.seen = new Set();
+      this.problems.clear();
+      this.setCapabilityValue('alarm_problem', false).catch(this.error);
+      this.setCapabilityValue('axis_problem', this.homey.__('problems.none')).catch(this.error);
       this.diag(`listening for events (${transport === 'rtsp' ? 'RTSP' : 'WebSocket'})`);
       if (!this.getAvailable()) this.setAvailable().catch(this.error);
     });
@@ -309,9 +314,11 @@ class CameraDevice extends Homey.Device {
     const where = ev.source.disk_id || ev.source.Name || ev.source.interface || '';
     const extra = ev.data.description ? `: ${ev.data.description}` : '';
     const text = `${this.homey.__(`problems.${problem}`) || problem}${where ? ` (${where})` : ''}${extra}`;
-    // A missing SD card or unused network share reports "disruption" from the start; only
-    // a disruption that appears while running counts.
-    if (initial && problem === 'storage') return;
+    // At connect: a missing SD card or unused network share reports a storage failure, and
+    // "network lost" can't be true while we are talking to the camera. Only such problems
+    // that appear while running count.
+    if (initial && state) this.diag(`starting state: ${events.bare(ev.topic)} ${JSON.stringify({ ...ev.source, ...ev.data })}`);
+    if (initial && ['storage', 'storageFailure', 'storageAlert', 'network'].includes(problem)) return;
     if (state === false) {
       if (!this.problems.has(key)) return;
       this.problems.delete(key);
