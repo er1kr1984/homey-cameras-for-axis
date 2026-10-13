@@ -7,6 +7,7 @@ const { RtspEventStream } = require('../../lib/rtsp-events');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
+const FEATURES_VERSION = 2; // bump to re-read after an app update that uses more
 const HEALTH_MS = 5 * 60 * 1000;
 const TAMPER_HOLD_MS = 60 * 1000;
 const EVENT_IMAGES = 10; // flow pictures kept per camera (oldest reused)
@@ -81,7 +82,7 @@ class CameraDevice extends Homey.Device {
   }
 
   async _loadFeatures(force) {
-    const fresh = this.features && this.features.at && Date.now() - this.features.at < FEATURES_REFRESH_MS;
+    const fresh = this.features && this.features.v === FEATURES_VERSION && Date.now() - this.features.at < FEATURES_REFRESH_MS;
     if (fresh && !force && this.instances.length) return;
     const [info, caps] = await Promise.all([this.client.deviceInfo(), this.client.capabilities()]);
     let instances = [];
@@ -90,8 +91,13 @@ class CameraDevice extends Homey.Device {
     } catch (err) {
       this.diag(`could not list event types: ${err.message}`);
     }
-    this.features = { ...caps, at: Date.now() };
+    this.features = { ...caps, at: Date.now(), v: FEATURES_VERSION };
     this.instances = instances.map((i) => ({ topic: i.topic, name: i.name, stateful: i.stateful }));
+    // Everything the camera can report, for diagnostics (one line per topic).
+    for (const i of instances) {
+      this.diag(`can send ${events.bare(i.topic)}${i.name ? ` "${i.name}"` : ''} [${i.stateful ? 'state' : 'pulse'}] `
+        + `source ${JSON.stringify(i.source)} data ${JSON.stringify(i.data)}${events.classify(i.topic) ? ` -> ${events.classify(i.topic)}` : ''}`);
+    }
     await this.setStoreValue('features', this.features);
     await this.setStoreValue('event_instances', this.instances);
     await this.setSettings({

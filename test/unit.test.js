@@ -49,6 +49,7 @@ test('events: topics are classified regardless of namespace prefix', () => {
   assert.strictEqual(events.classify('tns1:Device/tnsaxis:IO/VirtualInput'), 'input');
   assert.strictEqual(events.classify('tns1:AudioSource/tnsaxis:TriggerLevel'), 'audio');
   assert.strictEqual(events.classify('tns1:Device/tnsaxis:Status/SystemReady'), null);
+  assert.strictEqual(events.classify('tnsaxis:CameraApplicationPlatform/ObjectAnalytics/xinternal_data'), null);
 });
 
 test('events: on/off values and source keys', () => {
