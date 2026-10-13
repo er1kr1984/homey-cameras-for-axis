@@ -4,6 +4,7 @@ const Homey = require('homey');
 const { VapixClient, usableAddress } = require('../../lib/vapix');
 const { EventStream } = require('../../lib/event-stream');
 const { RtspEventStream } = require('../../lib/rtsp-events');
+const { Tracker, CATEGORIES } = require('../../lib/tracker');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
@@ -14,6 +15,9 @@ const SCENE_CHANGE_SAMPLES = 2; // a new people/vehicle count must hold this man
 const RECENT_EVENTS = 20; // kept for the dashboard widgets
 const WIDGET_SCENE_MS = 300; // scene frames while a widget shows the boxes
 const WIDGET_LEASE_MS = 15000; // keep the widget's scene stream this long after its last poll
+const TRACK_FRAME_MS = 300; // scene frames read while tracking (objects pass quickly)
+const TRAFFIC_SAVE_MS = 5 * 60 * 1000;
+const DETECTED_GAP_MS = 5000; // per category, for the "detected" flow
 const HEALTH_MS = 5 * 60 * 1000;
 const TAMPER_HOLD_MS = 60 * 1000;
 const EVENT_IMAGES = 10; // flow pictures kept per camera (oldest reused)
@@ -34,6 +38,15 @@ class CameraDevice extends Homey.Device {
     this.problems = new Map(); // source key -> problem text (active camera problems)
     this.audioClassAt = {};
     this.recent = []; // [{ time, kind, text }] newest first, for the widgets
+    this.detectedAt = {};
+    this.tracker = new Tracker({
+      history: this.getStoreValue('traffic') || {},
+      timeZone: this.homey.clock.getTimezone(),
+      onCounted: (obj) => this._onCounted(obj).catch((err) => this.error('counted:', err.message)),
+    });
+    this.trafficTimer = this.homey.setInterval(() => this._saveTraffic(), TRAFFIC_SAVE_MS);
+    // "Today" counters start again at midnight: refresh them every 10 minutes.
+    this.todayTimer = this.homey.setInterval(() => this._updateToday().catch(this.error), 10 * 60 * 1000);
     this.features = this.getStoreValue('features') || null;
     this.instances = this.getStoreValue('event_instances') || [];
     for (const cap of ['alarm_motion', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
@@ -146,8 +159,11 @@ class CameraDevice extends Homey.Device {
     if (this.getSetting('scene_counts')) {
       wanted.set('axis_people', null);
       wanted.set('axis_vehicles', null);
+      // A "today" counter for each kind of object this camera has counted so far.
+      const seen = new Set(Object.values(this.tracker.history).flatMap((b) => Object.keys(b)));
+      for (const c of CATEGORIES) if (seen.has(c)) wanted.set(`axis_today.${c}`, { title: { en: this.homey.__(`objects.today.${c}`) } });
     }
-    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles)$|^axis_count\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
+    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles)$|^axis_count\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
     for (const cap of this.getCapabilities()) {
       if (dynamic.test(cap) && !wanted.has(cap)) await this.removeCapability(cap).catch(this.error);
     }
@@ -411,8 +427,72 @@ class CameraDevice extends Homey.Device {
   _endSceneLease() {
     if (Date.now() < (this.sceneLeaseUntil || 0)) return;
     if (!this.scene) return;
-    if (this.getSetting('scene_counts')) this.scene.frameIntervalMs = 1000;
+    if (this.getSetting('scene_counts')) this.scene.frameIntervalMs = TRACK_FRAME_MS;
     else this._stopScene();
+  }
+
+  // ---- Counting people and vehicles over time ----
+
+  async _onCounted({ category, type, colors, image }) {
+    const name = this.homey.__(`objects.one.${category}`) || category;
+    const colorText = (colors || []).join(', ');
+    this.diag(`counted: ${name}${type ? ` (${type})` : ''}${colorText ? `, ${colorText}` : ''}`);
+    this._remember('object', `${name}${colorText ? ` (${colorText})` : ''}`);
+    const cap = `axis_today.${category}`;
+    if (!this.hasCapability(cap)) await this._syncCapabilities();
+    await this._updateToday();
+    if (Date.now() - (this.detectedAt[category] || 0) < DETECTED_GAP_MS) return;
+    this.detectedAt[category] = Date.now();
+    // The camera's own crop of the object when it sent one, else a picture of the scene.
+    let token;
+    if (image) {
+      token = await this._imageFromJpeg(Buffer.from(image, 'base64'));
+    } else {
+      token = await this._eventImage();
+    }
+    this.driver.triggers.detected.trigger(this, { type: name, colors: colorText, image: token }, { category }).catch(this.error);
+  }
+
+  async _imageFromJpeg(jpeg) {
+    let slot;
+    if (this.eventImages.length < EVENT_IMAGES) {
+      slot = { image: await this.homey.images.createImage(), jpeg: null };
+      slot.image.setStream(async (stream) => {
+        if (!slot.jpeg) throw new Error(this.homey.__('errors.no_picture'));
+        stream.end(slot.jpeg);
+      });
+      this.eventImages.push(slot);
+    } else {
+      slot = this.eventImages.shift();
+      this.eventImages.push(slot);
+    }
+    slot.jpeg = jpeg;
+    await slot.image.update().catch(() => {});
+    return slot.image;
+  }
+
+  async _updateToday() {
+    const today = this.tracker.today();
+    for (const c of CATEGORIES) {
+      const cap = `axis_today.${c}`;
+      if (this.hasCapability(cap) && this.getCapabilityValue(cap) !== (today[c] || 0)) {
+        await this.setCapabilityValue(cap, today[c] || 0).catch(this.error);
+      }
+    }
+  }
+
+  _saveTraffic() {
+    if (!this.tracker.dirty) return;
+    this.tracker.dirty = false;
+    this.setStoreValue('traffic', this.tracker.history).catch(this.error);
+  }
+
+  trafficSeries(period) {
+    return {
+      name: this.getName(),
+      tracking: Boolean(this.getSetting('scene_counts')),
+      ...this.tracker.series(period),
+    };
   }
 
   // ---- People and vehicles in view (analytics scene description, opt-in) ----
@@ -431,6 +511,7 @@ class CameraDevice extends Homey.Device {
         this.diag('no scene description received in 30 s; the camera may need AXIS Object Analytics or a newer AXIS OS');
       }, 30000);
     });
+    if (this.getSetting('scene_counts')) this.scene.frameIntervalMs = TRACK_FRAME_MS;
     this.scene.on('frame', (frame) => this._onSceneFrame(frame));
     this.scene.start();
   }
@@ -443,8 +524,9 @@ class CameraDevice extends Homey.Device {
   }
 
   _onSceneFrame(frame) {
-    this.lastFrame = { at: Date.now(), objects: frame.objects };
+    this.lastFrame = { at: Date.now(), objects: frame.objects.map((o) => ({ ...o, image: undefined })) };
     if (!this.getSetting('scene_counts')) return;
+    this.tracker.addFrame(frame);
     const isHuman = (t) => /human|person|face|head/.test(t || '');
     const isVehicle = (t) => /vehicle|car|truck|bus|bike|bicycle|motorcycle/.test(t || '');
     const people = frame.objects.filter((o) => isHuman(o.type)).length;
@@ -783,6 +865,9 @@ class CameraDevice extends Homey.Device {
   }
 
   _stop() {
+    this._saveTraffic();
+    this.homey.clearInterval(this.trafficTimer);
+    this.homey.clearInterval(this.todayTimer);
     this.homey.clearInterval(this.healthTimer);
     this.homey.clearTimeout(this.tamperTimer);
     this.homey.clearTimeout(this.motionOffTimer);

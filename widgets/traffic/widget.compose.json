@@ -1,0 +1,46 @@
+{
+  "name": {
+    "en": "Traffic and visitors"
+  },
+  "height": 300,
+  "settings": [
+    {
+      "id": "camera",
+      "type": "autocomplete",
+      "title": {
+        "en": "Camera"
+      },
+      "hint": {
+        "en": "A camera with 'Track and count people and vehicles' switched on."
+      }
+    },
+    {
+      "id": "period",
+      "type": "dropdown",
+      "title": {
+        "en": "Period"
+      },
+      "value": "day",
+      "values": [
+        {
+          "id": "day",
+          "title": {
+            "en": "Last 24 hours, per hour"
+          }
+        },
+        {
+          "id": "week",
+          "title": {
+            "en": "Last 7 days, per day"
+          }
+        }
+      ]
+    }
+  ],
+  "api": {
+    "traffic": {
+      "method": "POST",
+      "path": "/traffic"
+    }
+  }
+}

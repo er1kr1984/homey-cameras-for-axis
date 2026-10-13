@@ -85,6 +85,40 @@
     "noCameras": "No cameras yet. Add one with + > Cameras for AXIS.",
     "analyticsOff": "Object Analytics not running",
     "person": "person",
-    "vehicle": "vehicle"
+    "vehicle": "vehicle",
+    "traffic24": "Last 24 hours",
+    "traffic7": "Last 7 days",
+    "notTracking": "Switch on 'Track and count people and vehicles' in this camera's settings to start counting.",
+    "nothingCounted": "Nothing counted yet.",
+    "total": "total"
+  },
+  "objects": {
+    "one": {
+      "person": "Person",
+      "car": "Car",
+      "truck": "Truck",
+      "bus": "Bus",
+      "bicycle": "Bicycle",
+      "motorcycle": "Motorbike",
+      "vehicle": "Other vehicle"
+    },
+    "many": {
+      "person": "People",
+      "car": "Cars",
+      "truck": "Trucks",
+      "bus": "Buses",
+      "bicycle": "Bicycles",
+      "motorcycle": "Motorbikes",
+      "vehicle": "Other vehicles"
+    },
+    "today": {
+      "person": "People today",
+      "car": "Cars today",
+      "truck": "Trucks today",
+      "bus": "Buses today",
+      "bicycle": "Bicycles today",
+      "motorcycle": "Motorbikes today",
+      "vehicle": "Other vehicles today"
+    }
   }
 }

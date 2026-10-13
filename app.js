@@ -66,13 +66,19 @@ class AxisApp extends Homey.App {
   }
 
   _registerWidgets() {
-    const widget = this.homey.dashboards.getWidget('analytics');
-    widget.registerSettingAutocompleteListener('camera', async (query) => {
+    const cameras = async (query) => {
       const q = String(query || '').toLowerCase();
       return this._cameras()
         .map((d) => ({ id: d.getId(), name: d.getName(), description: d.getSetting('model') || '' }))
         .filter((c) => c.name.toLowerCase().includes(q));
-    });
+    };
+    for (const id of ['analytics', 'traffic']) {
+      this.homey.dashboards.getWidget(id).registerSettingAutocompleteListener('camera', cameras);
+    }
+  }
+
+  widgetTraffic({ camera, period }) {
+    return this._widgetCamera(camera).trafficSeries(period === 'week' ? 'week' : 'day');
   }
 
   _widgetCamera(camera) {

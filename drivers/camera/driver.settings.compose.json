@@ -152,11 +152,11 @@
         "id": "scene_counts",
         "type": "checkbox",
         "label": {
-          "en": "Count people and vehicles in view"
+          "en": "Track and count people and vehicles"
         },
         "value": false,
         "hint": {
-          "en": "Uses AXIS Object Analytics to show how many people and vehicles the camera sees right now. This makes Homey do more work, so only switch it on for cameras where you need it."
+          "en": "Uses AXIS Object Analytics to follow every person, car, truck, bus, bicycle and motorbike the camera sees. You get how many are in view now, how many passed today (with graphs in Insights), a flow for each one, and the 'Traffic and visitors' widget. This makes Homey do more work, so only switch it on for cameras where you need it."
         }
       }
     ]

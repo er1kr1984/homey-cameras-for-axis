@@ -646,6 +646,111 @@
             "filter": "driver_id=camera"
           }
         ]
+      },
+      {
+        "id": "object_detected",
+        "title": {
+          "en": "A person or vehicle was detected"
+        },
+        "titleFormatted": {
+          "en": "A [[type]] was detected"
+        },
+        "hint": {
+          "en": "Each new person or vehicle the camera's Object Analytics recognises. Needs 'Track and count people and vehicles' on in the device settings. The picture is the camera's own close-up of the object when it sends one."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "type",
+            "type": "dropdown",
+            "title": {
+              "en": "Type"
+            },
+            "values": [
+              {
+                "id": "any",
+                "label": {
+                  "en": "person or vehicle"
+                }
+              },
+              {
+                "id": "person",
+                "label": {
+                  "en": "person"
+                }
+              },
+              {
+                "id": "car",
+                "label": {
+                  "en": "car"
+                }
+              },
+              {
+                "id": "truck",
+                "label": {
+                  "en": "truck"
+                }
+              },
+              {
+                "id": "bus",
+                "label": {
+                  "en": "bus"
+                }
+              },
+              {
+                "id": "bicycle",
+                "label": {
+                  "en": "bicycle"
+                }
+              },
+              {
+                "id": "motorcycle",
+                "label": {
+                  "en": "motorbike"
+                }
+              },
+              {
+                "id": "vehicle",
+                "label": {
+                  "en": "other vehicle"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "type",
+            "type": "string",
+            "title": {
+              "en": "Type"
+            },
+            "example": {
+              "en": "Car"
+            }
+          },
+          {
+            "name": "colors",
+            "type": "string",
+            "title": {
+              "en": "Colours"
+            },
+            "example": {
+              "en": "white"
+            }
+          },
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ]
       }
     ],
     "conditions": [
@@ -1224,11 +1329,11 @@
               "id": "scene_counts",
               "type": "checkbox",
               "label": {
-                "en": "Count people and vehicles in view"
+                "en": "Track and count people and vehicles"
               },
               "value": false,
               "hint": {
-                "en": "Uses AXIS Object Analytics to show how many people and vehicles the camera sees right now. This makes Homey do more work, so only switch it on for cameras where you need it."
+                "en": "Uses AXIS Object Analytics to follow every person, car, truck, bus, bicycle and motorbike the camera sees. You get how many are in view now, how many passed today (with graphs in Insights), a flow for each one, and the 'Traffic and visitors' widget. This makes Homey do more work, so only switch it on for cameras where you need it."
               }
             }
           ]
@@ -1355,6 +1460,53 @@
         }
       },
       "id": "overview"
+    },
+    "traffic": {
+      "name": {
+        "en": "Traffic and visitors"
+      },
+      "height": 300,
+      "settings": [
+        {
+          "id": "camera",
+          "type": "autocomplete",
+          "title": {
+            "en": "Camera"
+          },
+          "hint": {
+            "en": "A camera with 'Track and count people and vehicles' switched on."
+          }
+        },
+        {
+          "id": "period",
+          "type": "dropdown",
+          "title": {
+            "en": "Period"
+          },
+          "value": "day",
+          "values": [
+            {
+              "id": "day",
+              "title": {
+                "en": "Last 24 hours, per hour"
+              }
+            },
+            {
+              "id": "week",
+              "title": {
+                "en": "Last 7 days, per day"
+              }
+            }
+          ]
+        }
+      ],
+      "api": {
+        "traffic": {
+          "method": "POST",
+          "path": "/traffic"
+        }
+      },
+      "id": "traffic"
     }
   },
   "capabilities": {
@@ -1439,6 +1591,18 @@
       "insightsTitleFalse": {
         "en": "Recording stopped"
       }
+    },
+    "axis_today": {
+      "type": "number",
+      "title": {
+        "en": "Counted today"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "decimals": 0,
+      "icon": "/assets/icon.svg"
     },
     "axis_vehicles": {
       "type": "number",

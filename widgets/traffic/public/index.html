@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    [hidden] { display: none !important; }
+    :root {
+      --text: var(--homey-text-color, #1d1d1f);
+      --muted: var(--homey-text-color-light, #8a8a8e);
+      --line: var(--homey-line-color, rgba(127,127,127,.18));
+      --font: var(--homey-font-family, -apple-system, system-ui, sans-serif);
+      --person: #3ba7ff;
+      --car: #ffb020;
+      --truck: #e5484d;
+      --bus: #a46bf5;
+      --bicycle: #2fb86a;
+      --motorcycle: #ff7a45;
+      --vehicle: #9aa0a8;
+    }
+    html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 var(--font); }
+    body { padding: 10px 12px 8px; }
+    .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .head h2 { margin: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .head span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .totals { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 6px; }
+    .total { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .total i { width: 9px; height: 9px; border-radius: 2px; display: block; }
+    .total b { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+    svg { display: block; width: 100%; height: 170px; overflow: visible; }
+    svg text { fill: var(--muted); font-size: 10px; font-family: var(--font); }
+    svg .grid { stroke: var(--line); stroke-width: 1; }
+    .empty { color: var(--muted); font-size: 12px; padding: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="head"><h2 id="name"></h2><span id="period"></span></div>
+  <div class="totals" id="totals"></div>
+  <svg id="chart" viewBox="0 0 400 170" preserveAspectRatio="none" role="img"></svg>
+  <div class="empty" id="empty" hidden></div>
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      const settings = Homey.getSettings() || {};
+      const camera = settings.camera;
+      const period = settings.period === 'week' ? 'week' : 'day';
+      const ORDER = ['person', 'car', 'truck', 'bus', 'bicycle', 'motorcycle', 'vehicle'];
+      const REFRESH_MS = 60000;
+      const t = (k, v) => Homey.__(k, v);
+      const $ = (id) => document.getElementById(id);
+      const NS = 'http://www.w3.org/2000/svg';
+      let timer = null;
+      const fit = () => { try { Homey.setHeight(document.body.scrollHeight); } catch (e) { /* older Homey */ } };
+      const color = (c) => getComputedStyle(document.documentElement).getPropertyValue(`--${c}`).trim();
+
+      $('period').textContent = t(period === 'week' ? 'widget.traffic7' : 'widget.traffic24');
+
+      function svg(tag, attrs, text) {
+        const e = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+        if (text !== undefined) e.textContent = text;
+        return e;
+      }
+
+      // A "nice" top for the y axis: 1, 2, 5 x 10^n at or above max.
+      function niceMax(max) {
+        if (max <= 4) return 4;
+        const p = 10 ** Math.floor(Math.log10(max));
+        return [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * p).find((v) => v >= max);
+      }
+
+      function draw(data) {
+        $('name').textContent = data.name;
+        const cats = ORDER.filter((c) => data.series[c]);
+        const totals = $('totals');
+        totals.textContent = '';
+        for (const c of cats) {
+          const s = document.createElement('span');
+          s.className = 'total';
+          const sw = document.createElement('i');
+          sw.style.background = color(c);
+          const b = document.createElement('b');
+          b.textContent = data.totals[c];
+          s.append(sw, b, document.createTextNode(t(`objects.many.${c}`)));
+          totals.append(s);
+        }
+        const chart = $('chart');
+        chart.textContent = '';
+        const empty = $('empty');
+        if (!cats.length) {
+          chart.hidden = true;
+          empty.hidden = false;
+          empty.textContent = data.tracking ? t('widget.nothingCounted') : t('widget.notTracking');
+          fit();
+          return;
+        }
+        chart.hidden = false;
+        empty.hidden = true;
+        const W = 400; const H = 170; const left = 22; const bottom = 18; const top = 4;
+        const n = data.labels.length;
+        const stack = data.labels.map((_, i) => cats.reduce((sum, c) => sum + data.series[c][i], 0));
+        const max = niceMax(Math.max(...stack));
+        const y = (v) => top + (H - bottom - top) * (1 - v / max);
+        for (const v of [0, max / 2, max]) {
+          chart.append(svg('line', { class: 'grid', x1: left, x2: W, y1: y(v), y2: y(v) }));
+          chart.append(svg('text', { x: left - 4, y: y(v) + 3, 'text-anchor': 'end' }, String(Math.round(v))));
+        }
+        const slot = (W - left) / n;
+        const bw = Math.max(2, slot * 0.7);
+        data.labels.forEach((label, i) => {
+          let acc = 0;
+          for (const c of cats) {
+            const v = data.series[c][i];
+            if (!v) continue;
+            const rect = svg('rect', {
+              x: left + i * slot + (slot - bw) / 2, y: y(acc + v), width: bw, height: y(acc) - y(acc + v), fill: color(c), rx: 1.5,
+            });
+            rect.append(svg('title', {}, `${label}: ${v} ${t(`objects.many.${c}`)}`));
+            chart.append(rect);
+            acc += v;
+          }
+          // Labels: every 3rd hour, or every day.
+          const show = period === 'week' || i % 3 === 0;
+          if (show) {
+            const text = period === 'week' ? new Date(`${label}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' }) : label.slice(0, 2);
+            chart.append(svg('text', { x: left + i * slot + slot / 2, y: H - 4, 'text-anchor': 'middle' }, text));
+          }
+        });
+        fit();
+      }
+
+      async function refresh() {
+        clearTimeout(timer);
+        if (document.hidden) return;
+        if (!camera) {
+          $('empty').hidden = false;
+          $('empty').textContent = t('widget.pickCamera');
+          $('chart').hidden = true;
+          fit();
+          return;
+        }
+        try {
+          draw(await Homey.api('POST', '/traffic', { camera, period }));
+        } catch (err) {
+          $('empty').hidden = false;
+          $('empty').textContent = (err && err.message) || String(err);
+          fit();
+        }
+        timer = setTimeout(refresh, REFRESH_MS);
+      }
+
+      document.addEventListener('visibilitychange', () => (document.hidden ? clearTimeout(timer) : refresh()));
+      refresh().then(() => Homey.ready());
+    }
+  </script>
+</body>
+</html>

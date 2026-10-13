@@ -32,7 +32,9 @@ class CameraDriver extends Homey.Driver {
       watched: card('live_watched_changed'),
       schedule: card('schedule_changed'),
       inView: card('in_view_changed'),
+      detected: card('object_detected'),
     };
+    this.triggers.detected.registerRunListener(async (args, state) => args.type === 'any' || args.type === state.category);
     this.triggers.sound.registerRunListener(async (args, state) => args.sound === 'any' || args.sound === state.sound);
     this.triggers.counted.registerRunListener(async (args, state) => !args.scenario || args.scenario.id === 'any' || args.scenario.id === state.topic);
     this.triggers.counted.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.countingChoices(query));
