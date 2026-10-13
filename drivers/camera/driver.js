@@ -1,11 +1,15 @@
 'use strict';
 
 const Homey = require('homey');
-const { VapixClient } = require('../../lib/vapix');
+const { VapixClient, usableAddress } = require('../../lib/vapix');
 const { scanSubnet } = require('../../lib/scan');
 
 // Product types offered as cameras; speakers, recorders and door controllers come later.
-const CAMERA_TYPES = /camera|door station|encoder|video|intercom|thermal/i;
+const CAMERA_TYPES = /camera|door station|encoder|intercom|thermal/i;
+const NOT_CAMERAS = /recorder|speaker|audio|door controller|radar|i\/o|switch/i;
+const isCamera = (type) => !type || (CAMERA_TYPES.test(type) && !NOT_CAMERAS.test(type));
+const CHECK_TIMEOUT_MS = 6000; // per request while searching
+const LIST_DEADLINE_MS = 12000; // after the network search, for the logins
 
 class CameraDriver extends Homey.Driver {
 
@@ -44,14 +48,25 @@ class CameraDriver extends Homey.Driver {
 
   async onPair(session) {
     let login = null;
+    this.homey.app.diag('pairing started');
+    session.setHandler('showView', async (view) => this.homey.app.diag(`pairing view: ${view}`));
     session.setHandler('login', async ({ username, password }) => {
+      this.homey.app.diag('pairing: login entered');
       login = { username: String(username || '').trim(), password: String(password || '') };
       if (!login.username) throw new Error(this.homey.__('pair.noUsername'));
       return true;
     });
     session.setHandler('list_devices', async () => {
       if (!login) throw new Error(this.homey.__('pair.noUsername'));
-      return this._camerasForLogin(login);
+      const t0 = Date.now();
+      try {
+        const list = await this._camerasForLogin(login);
+        this.homey.app.diag(`pairing: ${list.length} camera(s) listed after ${Date.now() - t0} ms`);
+        return list;
+      } catch (err) {
+        this.homey.app.diagError('pairing failed:', err.message);
+        throw err;
+      }
     });
   }
 
@@ -74,7 +89,7 @@ class CameraDriver extends Homey.Driver {
     const results = strategy ? Object.values(strategy.getDiscoveryResults()) : [];
     for (const r of results) {
       const serial = String((r.txt && r.txt.macaddress) || r.id || '').toUpperCase();
-      if (serial && r.address) found.set(serial, { host: r.address, secure: true, info: { SerialNumber: serial }, needsLogin: true });
+      if (serial && usableAddress(r.address)) found.set(serial, { host: r.address, secure: true, info: { SerialNumber: serial }, needsLogin: true });
     }
     // mDNS may be blocked: also look around Homey's own network.
     try {
@@ -86,9 +101,9 @@ class CameraDriver extends Homey.Driver {
         const known = found.get(serial);
         found.set(serial, { ...known, ...s, info: { ...(known && known.info), ...s.info } });
       }
-      this.log(`pairing: ${results.length} by mDNS, ${scanned.length} by network scan`);
+      this.homey.app.diag(`pairing: ${results.length} by mDNS, ${scanned.length} by network scan`);
     } catch (err) {
-      this.error('network scan failed:', err.message);
+      this.homey.app.diagError('network scan failed:', err.message);
     }
     return [...found.entries()].map(([serial, c]) => ({ serial, ...c }));
   }
@@ -98,16 +113,18 @@ class CameraDriver extends Homey.Driver {
     const candidates = (await this._candidates()).filter((c) => !existing.has(c.serial));
     const loginFailed = [];
     const devices = [];
-    await Promise.all(candidates.map(async (c) => {
+    const check = async (c) => {
       // Recorders, speakers, etc. say what they are without a login: skip them here.
-      if (c.info && c.info.ProdType && !CAMERA_TYPES.test(c.info.ProdType)) return;
+      if (c.info && !isCamera(c.info.ProdType)) return;
       let pin = null;
+      const t0 = Date.now();
       const client = new VapixClient({
-        host: c.host, secure: c.secure, username, password, onNewPin: (fp) => { pin = fp; },
+        host: c.host, secure: c.secure, username, password, timeoutMs: CHECK_TIMEOUT_MS, onNewPin: (fp) => { pin = fp; },
       });
+      client.onStep = (step) => this.homey.app.diag(`pairing: ${c.host} ${step} after ${Date.now() - t0} ms`);
       try {
         const info = await client.deviceInfo();
-        if (info.ProdType && !CAMERA_TYPES.test(info.ProdType)) return;
+        if (!isCamera(info.ProdType)) return;
         const model = info.ProdNbr || info.ProdShortName || 'Axis camera';
         devices.push({
           name: `AXIS ${model}`.replace(/^AXIS AXIS /, 'AXIS '),
@@ -117,18 +134,25 @@ class CameraDriver extends Homey.Driver {
           },
           settings: { address: c.host, use_https: c.secure },
         });
+        this.homey.app.diag(`pairing: ${c.host} ${model} OK after ${Date.now() - t0} ms`);
       } catch (err) {
         if (err.code === 'login_failed') loginFailed.push(c.host);
-        this.log(`pairing: ${c.host} skipped (${err.code || err.message})`);
+        this.homey.app.diag(`pairing: ${c.host} skipped (${err.code || err.message}) after ${Date.now() - t0} ms`);
       } finally {
         client.close();
       }
-    }));
+    };
+    // Homey gives this screen 30 seconds: answer with what is ready by the deadline.
+    await Promise.race([
+      Promise.all(candidates.map(check)),
+      new Promise((r) => setTimeout(r, LIST_DEADLINE_MS)),
+    ]);
     if (!devices.length && loginFailed.length) {
       throw new Error(this.homey.__('pair.loginRefused', { n: loginFailed.length }));
     }
-    devices.sort((a, b) => a.store.host.localeCompare(b.store.host, undefined, { numeric: true }));
-    return devices;
+    const list = devices.slice();
+    list.sort((a, b) => a.store.host.localeCompare(b.store.host, undefined, { numeric: true }));
+    return list;
   }
 }
 

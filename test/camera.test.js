@@ -9,6 +9,7 @@ const { VapixClient, probe } = require('../lib/vapix');
 const { EventStream } = require('../lib/event-stream');
 const { RtspUpstream } = require('../lib/rtsp-upstream');
 const events = require('../lib/events-map');
+const { RtspEventStream } = require('../lib/rtsp-events');
 
 let cam;
 const client = (opts = {}) => new VapixClient({
@@ -125,4 +126,29 @@ test('rtsp: video arrives, parameter sets are added before keyframes, keyframe r
   up.close();
   await new Promise((r) => setTimeout(r, 200));
   assert.ok(cam.teardowns >= 1, 'TEARDOWN sent');
+});
+
+test('events over RTSP (AXIS OS 9): metadata documents across packets become events', async () => {
+  const topics = events.usedTopics(await client().eventInstances());
+  const stream = new RtspEventStream({
+    camera: { host: '127.0.0.1', rtspPort: cam.rtspPort, username: 'homey', password: 'secret' }, topics,
+  });
+  const got = [];
+  stream.on('event', (e) => got.push(e));
+  const connected = new Promise((r) => stream.once('connected', r));
+  stream.start();
+  await connected;
+  assert.match(decodeURIComponent(cam.lastEventDescribe), /video=0&audio=0&event=on&eventtopic=onvif:VideoSource\/MotionAlarm\|/);
+  assert.match(decodeURIComponent(cam.lastEventDescribe), /axis:CameraApplicationPlatform\/ObjectAnalytics\/Device1Scenario1/);
+  await new Promise((r) => setTimeout(r, 200));
+  cam.emitMetadata('tns1:VideoSource/MotionAlarm', { Source: '0' }, { State: 'true' });
+  await new Promise((r) => setTimeout(r, 200));
+  assert.strictEqual(got.length, 2);
+  assert.strictEqual(got[0].operation, 'Initialized');
+  assert.strictEqual(events.stateOf(got[0]), false);
+  assert.strictEqual(got[1].topic, 'tns1:VideoSource/MotionAlarm');
+  assert.strictEqual(events.classify(got[1].topic), 'motion');
+  assert.strictEqual(events.stateOf(got[1]), true);
+  assert.deepStrictEqual(got[1].source, { Source: '0' });
+  stream.stop();
 });

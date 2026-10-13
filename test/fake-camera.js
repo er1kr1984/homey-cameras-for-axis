@@ -236,6 +236,31 @@ class FakeCamera {
 
   // ---- RTSP ----
 
+  // An ONVIF metadata document over every RTSP event stream, split over two RTP packets.
+  emitMetadata(topic, source, data, operation = 'Changed') {
+    const items = (o) => Object.entries(o).map(([k, v]) => `<tt:SimpleItem Name="${k}" Value="${v}"/>`).join('');
+    const xml = '<?xml version="1.0" encoding="UTF-8"?><tt:MetadataStream xmlns:tt="http://www.onvif.org/ver10/schema">'
+      + '<tt:Event><wsnt:NotificationMessage xmlns:tns1="http://www.onvif.org/ver10/topics" xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2">'
+      + `<wsnt:Topic Dialect="http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet">${topic}</wsnt:Topic>`
+      + `<wsnt:Message><tt:Message UtcTime="${new Date().toISOString()}" PropertyOperation="${operation}">`
+      + `<tt:Source>${items(source)}</tt:Source><tt:Key></tt:Key><tt:Data>${items(data)}</tt:Data>`
+      + '</tt:Message></wsnt:Message></wsnt:NotificationMessage></tt:Event></tt:MetadataStream>';
+    const buf = Buffer.from(xml);
+    const half = Math.floor(buf.length / 2);
+    for (const socket of this.metadataSockets || []) {
+      [buf.subarray(0, half), buf.subarray(half)].forEach((part, i) => {
+        const h = Buffer.alloc(12);
+        h[0] = 0x80;
+        h[1] = (i === 1 ? 0x80 : 0) | 98;
+        h.writeUInt16BE(i, 2);
+        const pkt = Buffer.concat([h, part]);
+        const head = Buffer.from([0x24, 0, 0, 0]);
+        head.writeUInt16BE(pkt.length, 2);
+        socket.write(Buffer.concat([head, pkt]));
+      });
+    }
+  }
+
   _onRtsp(socket) {
     this.rtspSessions.add(socket);
     socket.on('close', () => this.rtspSessions.delete(socket));
@@ -276,7 +301,13 @@ class FakeCamera {
       return;
     }
     const base = uri.split('?')[0];
-    if (method === 'DESCRIBE') {
+    if (method === 'DESCRIBE' && /event=on/.test(uri)) {
+      this.lastEventDescribe = uri;
+      socket.metadata = true;
+      const sdp = ['v=0', 'o=- 1 1 IN IP4 127.0.0.1', 's=Metadata', 't=0 0', 'a=control:*',
+        'm=application 0 RTP/AVP 98', 'a=rtpmap:98 vnd.onvif.metadata/90000', 'a=control:stream=0'].join('\r\n');
+      reply('200 OK', { 'Content-Base': `${uri}/`, 'Content-Type': 'application/sdp' }, `${sdp}\r\n`);
+    } else if (method === 'DESCRIBE') {
       this.lastDescribe = uri;
       const sdp = [
         'v=0', 'o=- 1 1 IN IP4 127.0.0.1', 's=Session streamed with GStreamer', 't=0 0', 'a=control:*',
@@ -290,7 +321,14 @@ class FakeCamera {
       reply('200 OK', { Session: '12345678;timeout=60', Transport: 'RTP/AVP/TCP;unicast;interleaved=0-1' });
     } else if (method === 'PLAY') {
       reply('200 OK', { Session: '12345678' });
-      this._startRtp(socket);
+      if (socket.metadata) {
+        this.metadataSockets = this.metadataSockets || new Set();
+        this.metadataSockets.add(socket);
+        socket.on('close', () => this.metadataSockets.delete(socket));
+        this.emitMetadata('tns1:VideoSource/MotionAlarm', { Source: '0' }, { State: 'false' }, 'Initialized');
+      } else {
+        this._startRtp(socket);
+      }
     } else if (method === 'SET_PARAMETER') {
       if (/Renew-Stream:\s*yes/i.test(body)) {
         this.keyframeRequests += 1;

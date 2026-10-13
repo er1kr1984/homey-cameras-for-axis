@@ -1,8 +1,9 @@
 'use strict';
 
 const Homey = require('homey');
-const { VapixClient } = require('../../lib/vapix');
+const { VapixClient, usableAddress } = require('../../lib/vapix');
 const { EventStream } = require('../../lib/event-stream');
+const { RtspEventStream } = require('../../lib/rtsp-events');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
@@ -11,6 +12,7 @@ const TAMPER_HOLD_MS = 60 * 1000;
 const EVENT_IMAGES = 10; // flow pictures kept per camera (oldest reused)
 const EVENT_SNAPSHOT_TIMEOUT_MS = 4000;
 const MAX_VIEWERS = 4;
+const AUDIO_TRIGGER_GAP_MS = 30 * 1000; // sound detection can flip every second
 const SNAPSHOT_SIZES = { small: 640, medium: 1280, full: Infinity };
 
 class CameraDevice extends Homey.Device {
@@ -125,27 +127,36 @@ class CameraDevice extends Homey.Device {
 
   // ---- Events ----
 
+  // Events over WebSocket (AXIS OS 10 and later), else over RTSP (older AXIS OS).
   _startEvents() {
     if (this.stream) this.stream.stop();
-    const filter = events.topicFilter(this.instances);
-    if (!filter) {
+    const topics = events.usedTopics(this.instances);
+    if (!topics.length) {
       this.diag('no events to listen to (none listed by the camera)');
       return;
     }
-    this.stream = new EventStream({
-      client: this.client,
-      filters: [{ topicFilter: filter }],
-      log: (...args) => this.diag(...args),
-    });
-    this.stream.on('connected', () => {
-      this.diag('listening for events');
+    const transport = this.getStoreValue('event_transport') || 'websocket';
+    this.stream = transport === 'rtsp'
+      ? new RtspEventStream({ camera: this.liveCamera(), topics, log: (...args) => this.diag(...args) })
+      : new EventStream({ client: this.client, filters: [{ topicFilter: topics.join('|') }], log: (...args) => this.diag(...args) });
+    const stream = this.stream;
+    stream.on('connected', () => {
+      // The first report of each thing after (re)connecting is its current state, not news.
+      this.seen = new Set();
+      this.diag(`listening for events (${transport === 'rtsp' ? 'RTSP' : 'WebSocket'})`);
       if (!this.getAvailable()) this.setAvailable().catch(this.error);
     });
-    this.stream.on('error', (err) => {
+    stream.on('error', (err) => {
       if (['login_failed', 'cert_changed', 'forbidden'].includes(err.code)) this._connectionProblem(err);
+      // No WebSocket event stream on this camera (AXIS OS before 10): use RTSP from now on.
+      if (transport === 'websocket' && err.code === 'not_supported' && this.stream === stream) {
+        this.diag('no WebSocket event stream on this camera; using the RTSP event stream');
+        this.setStoreValue('event_transport', 'rtsp').catch(this.error);
+        this._startEvents();
+      }
     });
-    this.stream.on('event', (ev) => this._onEvent(ev).catch((err) => this.error('event:', err.message)));
-    this.stream.start();
+    stream.on('event', (ev) => this._onEvent(ev).catch((err) => this.error('event:', err.message)));
+    stream.start();
   }
 
   async _onEvent(ev) {
@@ -153,7 +164,16 @@ class CameraDevice extends Homey.Device {
     const state = events.stateOf(ev);
     const topic = events.bare(ev.topic);
     const details = { ...ev.source, ...ev.data };
-    this.homey.app.diag(this.tag, `event ${topic} ${JSON.stringify(details)}`);
+    const key = events.sourceKey(ev);
+    if (!this.seen) this.seen = new Set();
+    // Stateful events: the first report after connecting only gives the current state.
+    const initial = (state !== null && !this.seen.has(key)) || ev.operation === 'Initialized';
+    this.seen.add(key);
+    if (initial) {
+      this._applyInitial(kind, ev, state, key);
+      return;
+    }
+    this.diag(`event ${topic} ${JSON.stringify(details)}`);
     this.driver.triggers.event.trigger(this, {
       topic, active: state !== false, details: JSON.stringify(details),
     }).catch(this.error);
@@ -193,8 +213,24 @@ class CameraDevice extends Homey.Device {
         this.driver.triggers.input.trigger(this, { port, active, virtual: /Virtual/.test(topic) }, { port }).catch(this.error);
       }
     }
-    if (kind === 'audio' && state !== false) {
+    if (kind === 'audio' && state !== false && Date.now() - (this.lastAudioAt || 0) > AUDIO_TRIGGER_GAP_MS) {
+      this.lastAudioAt = Date.now();
       this.driver.triggers.audio.trigger(this, {}).catch(this.error);
+    }
+  }
+
+  // Current state at connect: update the device quietly, run no flows.
+  _applyInitial(kind, ev, state, key) {
+    if (kind === 'motion' || (kind === 'analytics' && this.getSetting('analytics_motion') !== false)) {
+      if (state) this.motionSources.set(key, true);
+      else this.motionSources.delete(key);
+      const active = this.motionSources.size > 0;
+      if (this.getCapabilityValue('alarm_motion') !== active) this.setCapabilityValue('alarm_motion', active).catch(this.error);
+    }
+    if (kind === 'daynight') this.setCapabilityValue('axis_night', !state).catch(this.error);
+    if (kind === 'input') {
+      const port = Number(ev.source.port || ev.source.Port || 0);
+      this.inputs.set(port, state === true);
     }
   }
 
@@ -448,7 +484,7 @@ class CameraDevice extends Homey.Device {
   }
 
   async _addressSeen(address) {
-    if (!address || address === this.getSetting('address')) return;
+    if (!usableAddress(address) || address === this.getSetting('address')) return;
     this.diag(`camera moved to ${address}`);
     await this.setSettings({ address });
     this._restart();
