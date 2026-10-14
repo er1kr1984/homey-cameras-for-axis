@@ -267,7 +267,7 @@
           box.style.top = `${obj.box.y * 100}%`;
           box.style.width = `${obj.box.w * 100}%`;
           box.style.height = `${obj.box.h * 100}%`;
-          box.firstChild.textContent = [obj.type || '?', ...(obj.colors || []).slice(0, 2)].join(' · ');
+          box.firstChild.textContent = [obj.name || obj.type || '?', ...(obj.colors || []).slice(0, 2)].join(' · ');
         }
         for (const b of [...layer.children]) if (!keep.has(b.dataset.id)) b.remove();
       }

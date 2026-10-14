@@ -136,7 +136,9 @@
       "bicycle": "Bicycle",
       "motorcycle": "Motorbike",
       "vehicle": "Other vehicle",
-      "motion": "Motion"
+      "motion": "Motion",
+      "face": "Face",
+      "plate": "Licence plate"
     },
     "many": {
       "person": "People",

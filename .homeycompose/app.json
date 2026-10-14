@@ -59,5 +59,9 @@
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png",
     "xlarge": "/assets/images/xlarge.png"
+  },
+  "source": "https://github.com/er1kr1984/homey-cameras-for-axis",
+  "bugs": {
+    "url": "https://github.com/er1kr1984/homey-cameras-for-axis/issues"
   }
 }

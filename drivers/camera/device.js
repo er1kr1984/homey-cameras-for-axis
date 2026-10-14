@@ -587,7 +587,15 @@ class CameraDevice extends Homey.Device {
     const frame = this.lastFrame;
     return {
       age: frame ? Date.now() - frame.at : null,
-      objects: frame && Date.now() - frame.at < 3000 ? frame.objects : [],
+      // name: what to call it on the box ("Person", "Car"), colours in the user's words.
+      objects: frame && Date.now() - frame.at < 3000 ? frame.objects.map((o) => {
+        const c = categoryOf(o.type);
+        return {
+          ...o,
+          name: c && CATEGORIES.includes(c) ? this._objectName(c) : this.homey.__(`objects.one.${c}`) || o.type,
+          colors: (o.colors || []).map((x) => this.homey.__(`colors.${x}`) || x),
+        };
+      }) : [],
     };
   }
 
