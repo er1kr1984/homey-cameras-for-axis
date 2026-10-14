@@ -147,7 +147,15 @@
         "hint": {
           "en": "When on, a person or vehicle seen by AXIS Object Analytics also turns on the motion alarm."
         }
-      },
+      }
+    ]
+  },
+  {
+    "type": "group",
+    "label": {
+      "en": "People and vehicles"
+    },
+    "children": [
       {
         "id": "scene_counts",
         "type": "checkbox",
@@ -156,7 +164,51 @@
         },
         "value": false,
         "hint": {
-          "en": "Uses AXIS Object Analytics to follow every person, car, truck, bus, bicycle and motorbike the camera sees. You get how many are in view now, how many passed today (with graphs in Insights), a flow for each one, and the 'Traffic and visitors' widget. This makes Homey do more work, so only switch it on for cameras where you need it."
+          "en": "Uses AXIS Object Analytics to follow every person, car, truck, bus, bicycle and motorbike the camera sees. You get how many are in view now, how many passed today (with graphs in Insights), which way they went, how long they stayed, a summary and the 'Traffic and visitors', 'Recent visitors' and 'Heatmap' widgets. This makes Homey do more work, so only switch it on for cameras where you need it."
+        }
+      },
+      {
+        "id": "dir_right",
+        "type": "text",
+        "label": {
+          "en": "Left to right"
+        },
+        "value": "",
+        "hint": {
+          "en": "Your own name for this direction, used in flows and widgets. Example: 'Towards the house'. Leave empty for 'Left to right'."
+        }
+      },
+      {
+        "id": "dir_left",
+        "type": "text",
+        "label": {
+          "en": "Right to left"
+        },
+        "value": "",
+        "hint": {
+          "en": "Your own name for this direction, used in flows and widgets. Example: 'Away from the house'. Leave empty for 'Right to left'."
+        }
+      },
+      {
+        "id": "dir_down",
+        "type": "text",
+        "label": {
+          "en": "Towards the camera"
+        },
+        "value": "",
+        "hint": {
+          "en": "Your own name for this direction, used in flows and widgets. Example: 'Coming up the driveway'. Leave empty for 'Towards the camera'."
+        }
+      },
+      {
+        "id": "dir_up",
+        "type": "text",
+        "label": {
+          "en": "Away from the camera"
+        },
+        "value": "",
+        "hint": {
+          "en": "Your own name for this direction, used in flows and widgets. Example: 'Going down the driveway'. Leave empty for 'Away from the camera'."
         }
       }
     ]

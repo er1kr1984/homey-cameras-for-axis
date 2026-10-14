@@ -1,0 +1,84 @@
+{
+  "name": {
+    "en": "Recent visitors"
+  },
+  "height": 320,
+  "settings": [
+    {
+      "id": "camera",
+      "type": "autocomplete",
+      "title": {
+        "en": "Camera"
+      },
+      "hint": {
+        "en": "A camera with 'Track and count people and vehicles' switched on."
+      }
+    },
+    {
+      "id": "kind",
+      "type": "dropdown",
+      "title": {
+        "en": "Show"
+      },
+      "value": "all",
+      "values": [
+        {
+          "id": "all",
+          "title": {
+            "en": "People and vehicles"
+          }
+        },
+        {
+          "id": "people",
+          "title": {
+            "en": "People"
+          }
+        },
+        {
+          "id": "vehicles",
+          "title": {
+            "en": "Vehicles"
+          }
+        }
+      ]
+    },
+    {
+      "id": "limit",
+      "type": "dropdown",
+      "title": {
+        "en": "How many"
+      },
+      "value": "12",
+      "values": [
+        {
+          "id": "6",
+          "title": {
+            "en": "The last 6"
+          }
+        },
+        {
+          "id": "12",
+          "title": {
+            "en": "The last 12"
+          }
+        },
+        {
+          "id": "24",
+          "title": {
+            "en": "The last 24"
+          }
+        }
+      ]
+    }
+  ],
+  "api": {
+    "timeline": {
+      "method": "POST",
+      "path": "/timeline"
+    },
+    "picture": {
+      "method": "POST",
+      "path": "/picture"
+    }
+  }
+}

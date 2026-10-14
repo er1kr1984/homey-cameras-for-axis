@@ -1,10 +1,12 @@
 'use strict';
 
+const path = require('node:path');
 const Homey = require('homey');
 const { VapixClient, usableAddress } = require('../../lib/vapix');
 const { EventStream } = require('../../lib/event-stream');
 const { RtspEventStream } = require('../../lib/rtsp-events');
-const { Tracker, CATEGORIES } = require('../../lib/tracker');
+const { Tracker, CATEGORIES, groupOf } = require('../../lib/tracker');
+const { Timeline } = require('../../lib/timeline');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
@@ -26,6 +28,8 @@ const MAX_VIEWERS = 4;
 const AUDIO_TRIGGER_GAP_MS = 30 * 1000; // sound detection can flip every second
 const EVENT_LOG_GAP_MS = 60 * 1000; // the same event is logged at most this often
 const TRACK_SUMMARY_MS = 15 * 60 * 1000;
+const TRACK_TICK_MS = 5000; // objects that stopped being reported are let go
+const SNAPSHOT_REUSE_MS = 3000; // a scene picture this recent is reused for the next object
 const SNAPSHOT_SIZES = { small: 640, medium: 1280, full: Infinity };
 
 class CameraDevice extends Homey.Device {
@@ -41,11 +45,23 @@ class CameraDevice extends Homey.Device {
     this.audioClassAt = {};
     this.recent = []; // [{ time, kind, text }] newest first, for the widgets
     this.detectedAt = {};
+    const failed = (what) => (err) => this.error(`${what}:`, err.message);
     this.tracker = new Tracker({
       history: this.getStoreValue('traffic') || {},
+      heat: this.getStoreValue('heat') || null,
       timeZone: this.homey.clock.getTimezone(),
-      onCounted: (obj) => this._onCounted(obj).catch((err) => this.error('counted:', err.message)),
+      onCounted: (obj) => this._onCounted(obj).catch(failed('counted')),
+      onImage: (obj) => this._onObjectImage(obj).catch(failed('close-up')),
+      onDwell: (obj) => this._onDwell(obj).catch(failed('dwell')),
+      onGone: (obj) => this._onGone(obj),
+      onUnusual: (u) => this._onUnusual(u),
     });
+    this.timeline = new Timeline({
+      dir: path.join('/userdata', 'timeline', String(this.getData().id).replace(/[^\w-]/g, '')),
+      entries: this.getStoreValue('timeline') || [],
+    });
+    this.trackTickTimer = this.homey.setInterval(() => this.tracker.tick(), TRACK_TICK_MS);
+    this._scheduleMinute();
     this.trafficTimer = this.homey.setInterval(() => this._saveTraffic(), TRAFFIC_SAVE_MS);
     // "Today" counters start again at midnight: refresh them every 10 minutes.
     this.todayTimer = this.homey.setInterval(() => this._updateToday().catch(this.error), 10 * 60 * 1000);
@@ -441,8 +457,20 @@ class CameraDevice extends Homey.Device {
 
   // ---- Counting people and vehicles over time ----
 
-  async _onCounted({ category, type, colors, image }) {
-    const name = this.homey.__(`objects.one.${category}`) || category;
+  _objectName(category) {
+    return this.homey.__(`objects.one.${category}`) || category;
+  }
+
+  // What the user calls a direction ("Towards the house"), else a plain default.
+  directionName(direction) {
+    if (!direction) return this.homey.__('directions.none');
+    return String(this.getSetting(`dir_${direction}`) || '').trim() || this.homey.__(`directions.${direction}`);
+  }
+
+  async _onCounted({
+    id, category, type, colors, image, box,
+  }) {
+    const name = this._objectName(category);
     const colorText = (colors || []).join(', ');
     if (this.trackStats) this.trackStats.counted += 1;
     this.diag(`counted: ${name}${type ? ` (${type})` : ''}${colorText ? `, ${colorText}` : ''}`);
@@ -450,16 +478,121 @@ class CameraDevice extends Homey.Device {
     const cap = `axis_today.${category}`;
     if (!this.hasCapability(cap)) await this._syncCapabilities();
     await this._updateToday();
+    // A picture for the timeline: the camera's close-up, else the scene with the object's box.
+    const entry = this.timeline.add({
+      objectId: id, category, type, colors,
+    });
+    let jpeg = image ? Buffer.from(image, 'base64') : null;
+    if (jpeg) {
+      await this.timeline.setPicture(entry, jpeg, 'crop');
+    } else {
+      jpeg = await this._snapshotJpeg(true);
+      await this.timeline.setPicture(entry, jpeg, 'scene', box);
+    }
     if (Date.now() - (this.detectedAt[category] || 0) < DETECTED_GAP_MS) return;
     this.detectedAt[category] = Date.now();
-    // The camera's own crop of the object when it sent one, else a picture of the scene.
-    let token;
-    if (image) {
-      token = await this._imageFromJpeg(Buffer.from(image, 'base64'));
-    } else {
-      token = await this._eventImage();
+    const token = await this._imageFromJpeg(jpeg);
+    this.driver.triggers.detected.trigger(this, { type: name, colors: colorText, image: token }, { category, colors }).catch(this.error);
+  }
+
+  async _onObjectImage({ id, image }) {
+    await this.timeline.setPicture(this.timeline.forObject(id), Buffer.from(image, 'base64'), 'crop');
+  }
+
+  // Still in view after a whole number of minutes: only build the flow tokens when a
+  // flow waits for exactly this many minutes.
+  async _onDwell({
+    id, category, minutes, colors,
+  }) {
+    const wanted = await this.driver.triggers.lingering.getArgumentValues(this).catch(() => []);
+    if (!wanted.some((args) => Math.max(1, Math.round(Number(args.minutes) || 0)) === minutes)) return;
+    const name = this._objectName(category);
+    this.diag(`${name} in view for ${minutes} min`);
+    this._remember('object', this.homey.__('widget.stayed', { name, n: minutes }));
+    const entry = this.timeline.forObject(id);
+    const picture = entry && (await this.timeline.picture(entry.key));
+    const jpeg = picture && picture.kind === 'crop' ? picture.jpeg : await this._snapshotJpeg(true);
+    const image = await this._imageFromJpeg(jpeg);
+    this.driver.triggers.lingering.trigger(this, {
+      type: name, minutes, colors: colors.join(', '), image,
+    }, { category, minutes }).catch(this.error);
+  }
+
+  _onGone({
+    id, category, direction, seconds, colors,
+  }) {
+    this.timeline.finish(id, { direction, seconds });
+    if (!direction) return;
+    const name = this._objectName(category);
+    this.driver.triggers.passed.trigger(this, {
+      type: name, direction: this.directionName(direction), seconds, colors: colors.join(', '),
+    }, { category, direction, colors }).catch(this.error);
+  }
+
+  _onUnusual({
+    group, count, usual, hour,
+  }) {
+    const what = this.homey.__(`widget.${group}`);
+    this.diag(`unusual: ${count} ${what} between ${hour}:00 and ${hour}:59, usually ${usual}`);
+    this._remember('unusual', this.homey.__('widget.unusual', { n: count, what }));
+    this.driver.triggers.unusual.trigger(this, {
+      what, count, usual, hour: `${hour}:00`,
+    }, { group }).catch(this.error);
+  }
+
+  // A plain sentence: "Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9). Longest stay: a car, 14 min."
+  summaryText(period = 'today') {
+    const s = this.tracker.summary(period);
+    const __ = (k, v) => this.homey.__(k, v);
+    const label = __(`summary.${period}`);
+    const parts = CATEGORIES.filter((c) => s.totals[c])
+      .map((c) => `${s.totals[c]} ${__(`objects.${s.totals[c] === 1 ? 'one' : 'many'}.${c}`).toLowerCase()}`);
+    if (!parts.length) return { text: __('summary.nothing', { label }), ...s };
+    const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ${__('summary.and')} ${parts[parts.length - 1]}` : parts[0];
+    let text = `${label}: ${list}.`;
+    if (s.busiest) text += ` ${__('summary.busiest', { hour: `${s.busiest.hour}:00`, n: s.busiest.count })}`;
+    if (s.longest && s.longest.seconds >= 60) {
+      text += ` ${__('summary.longest', { name: this._objectName(s.longest.category).toLowerCase(), n: Math.round(s.longest.seconds / 60) })}`;
     }
-    this.driver.triggers.detected.trigger(this, { type: name, colors: colorText, image: token }, { category }).catch(this.error);
+    return { text, ...s };
+  }
+
+  summaryTokens(period) {
+    const s = this.summaryText(period);
+    const sum = (group) => CATEGORIES.reduce((n, c) => n + (groupOf(c) === group ? s.totals[c] || 0 : 0), 0);
+    return {
+      summary: s.text, people: sum('people'), vehicles: sum('vehicles'), busiest: s.busiest ? `${s.busiest.hour}:00` : '',
+    };
+  }
+
+  // Once a minute, on the minute: the "daily summary at <time>" flows.
+  _scheduleMinute() {
+    const now = new Date();
+    this.minuteTimer = this.homey.setTimeout(() => {
+      this._scheduleMinute();
+      this._summaryTime().catch(this.error);
+    }, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 50);
+  }
+
+  async _summaryTime() {
+    if (!this.getSetting('scene_counts')) return;
+    const time = new Intl.DateTimeFormat('en-GB', {
+      timeZone: this.homey.clock.getTimezone(), hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).format(new Date());
+    const wanted = await this.driver.triggers.summary.getArgumentValues(this).catch(() => []);
+    const periods = new Set(wanted.filter((args) => args.time === time).map((args) => args.period || 'today'));
+    for (const period of periods) {
+      this.driver.triggers.summary.trigger(this, this.summaryTokens(period), { time, period }).catch(this.error);
+    }
+  }
+
+  // Conditions: people/vehicles in view now (counted ones; needs tracking on).
+  inViewCount(type) {
+    if (!this.scene || !this.getSetting('scene_counts')) return 0;
+    const now = this.tracker.inView();
+    return Object.entries(now)
+      .filter(([c]) => type === 'any' || type === c || type === groupOf(c))
+      .reduce((n, [, k]) => n + k, 0);
   }
 
   async _imageFromJpeg(jpeg) {
@@ -490,30 +623,56 @@ class CameraDevice extends Homey.Device {
     }
   }
 
-  // Diagnostics: what the tracker has seen since the last summary.
-  _trackSummary() {
-    if (!this.getSetting('scene_counts')) return;
-    const st = this.trackStats;
-    this.trackStats = null;
-    if (!st) {
-      this.diag(`tracking: no scene frames in the last ${TRACK_SUMMARY_MS / 60000} min${this.scene ? '' : ' (scene stream not running)'}`);
-      return;
-    }
-    const types = Object.entries(st.types).map(([t, e]) => `${t} ${e.n}x (best ${e.best.toFixed(2)})`).join(', ');
-    this.diag(`tracking: ${st.frames} frames, objects: ${types || 'none'}; counted ${st.counted}`);
-  }
-
   _saveTraffic() {
-    if (!this.tracker.dirty) return;
-    this.tracker.dirty = false;
-    this.setStoreValue('traffic', this.tracker.history).catch(this.error);
+    if (this.tracker.dirty) {
+      this.tracker.dirty = false;
+      this.setStoreValue('traffic', this.tracker.history).catch(this.error);
+      this.setStoreValue('heat', this.tracker.heat).catch(this.error);
+    }
+    if (this.timeline.dirty) {
+      this.timeline.dirty = false;
+      this.setStoreValue('timeline', this.timeline.entries).catch(this.error);
+    }
   }
 
   trafficSeries(period) {
+    const data = this.tracker.series(period);
+    const directions = {};
+    for (const [c, d] of Object.entries(data.directions)) {
+      directions[c] = Object.entries(d).sort((a, b) => b[1] - a[1]).map(([dir, n]) => ({ name: this.directionName(dir), n }));
+    }
     return {
       name: this.getName(),
       tracking: Boolean(this.getSetting('scene_counts')),
-      ...this.tracker.series(period),
+      ...data,
+      directions,
+    };
+  }
+
+  timelineList(kind, limit) {
+    return {
+      name: this.getName(),
+      tracking: Boolean(this.getSetting('scene_counts')),
+      entries: this.timeline.list(kind, limit).map((e) => ({
+        ...e,
+        name: this._objectName(e.category),
+        direction: e.direction ? this.directionName(e.direction) : null,
+      })),
+    };
+  }
+
+  async timelinePicture(key) {
+    const p = await this.timeline.picture(key);
+    if (!p) return null;
+    return { jpeg: p.jpeg.toString('base64'), kind: p.kind, box: p.box };
+  }
+
+  async heatmap(kind) {
+    return {
+      name: this.getName(),
+      tracking: Boolean(this.getSetting('scene_counts')),
+      ...this.tracker.heatmap(kind),
+      jpeg: ((await this._snapshotJpeg(true)) || Buffer.alloc(0)).toString('base64'),
     };
   }
 
@@ -674,32 +833,25 @@ class CameraDevice extends Homey.Device {
     this.image = image;
   }
 
-  // A picture of this moment for a flow token (images are reused round-robin).
-  async _eventImage() {
-    let jpeg = null;
+  // A picture of the camera now, or null. reuse: a picture from the last few seconds will do.
+  async _snapshotJpeg(reuse = false) {
+    if (reuse && this.lastSnapshot && Date.now() - this.lastSnapshot.at < SNAPSHOT_REUSE_MS) return this.lastSnapshot.jpeg;
     try {
-      jpeg = await Promise.race([
+      const jpeg = await Promise.race([
         this.client.snapshot({ resolution: this._snapshotResolution() }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('snapshot timeout')), EVENT_SNAPSHOT_TIMEOUT_MS)),
       ]);
+      this.lastSnapshot = { at: Date.now(), jpeg };
+      return jpeg;
     } catch (err) {
       this.diag(`event picture failed: ${err.message}`);
+      return null;
     }
-    let slot;
-    if (this.eventImages.length < EVENT_IMAGES) {
-      slot = { image: await this.homey.images.createImage(), jpeg: null };
-      slot.image.setStream(async (stream) => {
-        if (!slot.jpeg) throw new Error(this.homey.__('errors.no_picture'));
-        stream.end(slot.jpeg);
-      });
-      this.eventImages.push(slot);
-    } else {
-      slot = this.eventImages.shift();
-      this.eventImages.push(slot);
-    }
-    slot.jpeg = jpeg;
-    await slot.image.update().catch(() => {});
-    return slot.image;
+  }
+
+  // A picture of this moment for a flow token (images are reused round-robin).
+  async _eventImage() {
+    return this._imageFromJpeg(await this._snapshotJpeg());
   }
 
   async snapshotToken() {
@@ -895,6 +1047,7 @@ class CameraDevice extends Homey.Device {
 
   async onDeleted() {
     this._stop();
+    await this.timeline.clear();
   }
 
   _stop() {
@@ -902,6 +1055,8 @@ class CameraDevice extends Homey.Device {
     this.homey.clearInterval(this.trafficTimer);
     this.homey.clearInterval(this.todayTimer);
     this.homey.clearInterval(this.trackSummaryTimer);
+    this.homey.clearInterval(this.trackTickTimer);
+    this.homey.clearTimeout(this.minuteTimer);
     this.homey.clearInterval(this.healthTimer);
     this.homey.clearTimeout(this.tamperTimer);
     this.homey.clearTimeout(this.motionOffTimer);

@@ -1,0 +1,52 @@
+{
+  "name": {
+    "en": "Heatmap"
+  },
+  "height": 260,
+  "settings": [
+    {
+      "id": "camera",
+      "type": "autocomplete",
+      "title": {
+        "en": "Camera"
+      },
+      "hint": {
+        "en": "A camera with 'Track and count people and vehicles' switched on."
+      }
+    },
+    {
+      "id": "kind",
+      "type": "dropdown",
+      "title": {
+        "en": "Paths of"
+      },
+      "value": "all",
+      "values": [
+        {
+          "id": "all",
+          "title": {
+            "en": "People and vehicles"
+          }
+        },
+        {
+          "id": "people",
+          "title": {
+            "en": "People"
+          }
+        },
+        {
+          "id": "vehicles",
+          "title": {
+            "en": "Vehicles"
+          }
+        }
+      ]
+    }
+  ],
+  "api": {
+    "heatmap": {
+      "method": "POST",
+      "path": "/heatmap"
+    }
+  }
+}

@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    [hidden] { display: none !important; }
+    :root {
+      --text: var(--homey-text-color, #1d1d1f);
+      --muted: var(--homey-text-color-light, #8a8a8e);
+      --line: var(--homey-line-color, rgba(127,127,127,.18));
+      --tile: rgba(127,127,127,.14);
+      --font: var(--homey-font-family, -apple-system, system-ui, sans-serif);
+    }
+    html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 var(--font); }
+    body { padding: 10px 12px 10px; }
+    .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .head h2 { margin: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .head span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+    .item { min-width: 0; }
+    .pic { position: relative; aspect-ratio: 1; border-radius: 8px; background: var(--tile) no-repeat center / contain; overflow: hidden; }
+    .pic.cover { background-size: cover; }
+    .time { position: absolute; left: 4px; bottom: 4px; padding: 0 5px; border-radius: 5px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .name { margin-top: 4px; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta { color: var(--muted); font-size: 11px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .empty { color: var(--muted); font-size: 12px; padding: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="head"><h2 id="name"></h2><span id="sub"></span></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      const settings = Homey.getSettings() || {};
+      const camera = settings.camera;
+      const kind = ['people', 'vehicles'].includes(settings.kind) ? settings.kind : 'all';
+      const limit = Number(settings.limit) || 12;
+      const REFRESH_MS = 15000;
+      const t = (k, v) => Homey.__(k, v);
+      const $ = (id) => document.getElementById(id);
+      const pictures = new Map(); // key:v -> { url, w, h }
+      let timer = null;
+      const fit = () => { try { Homey.setHeight(document.body.scrollHeight); } catch (e) { /* older Homey */ } };
+      const el = (tag, cls, text) => {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text !== undefined) e.textContent = text;
+        return e;
+      };
+      const clock = (ms) => {
+        const d = new Date(ms);
+        const today = new Date().toDateString() === d.toDateString();
+        const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return today ? hm : `${d.toLocaleDateString([], { weekday: 'short' })} ${hm}`;
+      };
+      const stay = (s) => (s >= 60 ? t('widget.minutes', { n: Math.round(s / 60) }) : t('widget.seconds', { n: s }));
+
+      $('sub').textContent = t('widget.visitors');
+
+      async function load(entry) {
+        const id = `${entry.key}:${entry.v}`;
+        if (pictures.has(id)) return pictures.get(id);
+        const p = await Homey.api('POST', '/picture', { camera, key: entry.key }).catch(() => null);
+        if (!p || !p.jpeg) return null;
+        const url = `data:image/jpeg;base64,${p.jpeg}`;
+        const img = new Image();
+        await new Promise((r) => { img.onload = r; img.onerror = r; img.src = url; });
+        const pic = {
+          url, w: img.naturalWidth, h: img.naturalHeight, kind: p.kind, box: p.box,
+        };
+        pictures.set(id, pic);
+        return pic;
+      }
+
+      // Show the picture; a scene picture is zoomed in on the object's box.
+      function paint(div, pic) {
+        div.style.backgroundImage = `url("${pic.url}")`;
+        if (pic.kind !== 'scene' || !pic.box || !pic.w) {
+          div.classList.toggle('cover', pic.kind !== 'crop');
+          return;
+        }
+        const size = div.clientWidth || 96;
+        const b = pic.box;
+        const side = Math.max(b.w * pic.w, b.h * pic.h, 24) * 1.35;
+        const scale = size / side;
+        const cx = (b.x + b.w / 2) * pic.w;
+        const cy = (b.y + b.h / 2) * pic.h;
+        div.style.backgroundSize = `${pic.w * scale}px ${pic.h * scale}px`;
+        div.style.backgroundPosition = `${-(cx - side / 2) * scale}px ${-(cy - side / 2) * scale}px`;
+      }
+
+      async function render(data) {
+        $('name').textContent = data.name;
+        const grid = $('grid');
+        grid.textContent = '';
+        const empty = $('empty');
+        empty.hidden = data.entries.length > 0;
+        empty.textContent = data.tracking ? t('widget.noVisitors') : t('widget.notTracking');
+        const tiles = data.entries.map((e) => {
+          const item = el('div', 'item');
+          const pic = el('div', 'pic');
+          pic.append(el('span', 'time', clock(e.at)));
+          const colors = e.colors.join(', ');
+          const went = [e.direction, e.seconds ? stay(e.seconds) : ''].filter(Boolean).join(' · ');
+          item.append(pic, el('div', 'name', `${e.name}${colors ? ` · ${colors}` : ''}`), el('div', 'meta', went || ' '));
+          item.title = [e.name, colors, went].filter(Boolean).join(' · ');
+          grid.append(item);
+          return { e, pic };
+        });
+        fit();
+        for (const { e, pic } of tiles) {
+          if (!e.picture) continue;
+          const p = await load(e);
+          if (p) paint(pic, p);
+        }
+        // Forget pictures no longer listed.
+        const keep = new Set(data.entries.map((e) => `${e.key}:${e.v}`));
+        for (const id of pictures.keys()) if (!keep.has(id)) pictures.delete(id);
+      }
+
+      async function refresh() {
+        clearTimeout(timer);
+        if (document.hidden) return;
+        if (!camera) {
+          $('empty').hidden = false;
+          $('empty').textContent = t('widget.pickCamera');
+          fit();
+          return;
+        }
+        try {
+          await render(await Homey.api('POST', '/timeline', { camera, kind, limit }));
+        } catch (err) {
+          $('empty').hidden = false;
+          $('empty').textContent = (err && err.message) || String(err);
+          fit();
+        }
+        timer = setTimeout(refresh, REFRESH_MS);
+      }
+
+      document.addEventListener('visibilitychange', () => (document.hidden ? clearTimeout(timer) : refresh()));
+      refresh().then(() => Homey.ready());
+    }
+  </script>
+</body>
+</html>

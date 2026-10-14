@@ -72,13 +72,25 @@ class AxisApp extends Homey.App {
         .map((d) => ({ id: d.getId(), name: d.getName(), description: d.getSetting('model') || '' }))
         .filter((c) => c.name.toLowerCase().includes(q));
     };
-    for (const id of ['analytics', 'traffic']) {
+    for (const id of ['analytics', 'traffic', 'visitors', 'heatmap']) {
       this.homey.dashboards.getWidget(id).registerSettingAutocompleteListener('camera', cameras);
     }
   }
 
   widgetTraffic({ camera, period }) {
-    return this._widgetCamera(camera).trafficSeries(period === 'week' ? 'week' : 'day');
+    return this._widgetCamera(camera).trafficSeries(['week', 'month'].includes(period) ? period : 'day');
+  }
+
+  widgetTimeline({ camera, kind, limit }) {
+    return this._widgetCamera(camera).timelineList(['people', 'vehicles'].includes(kind) ? kind : 'all', Math.min(40, Number(limit) || 12));
+  }
+
+  async widgetPicture({ camera, key }) {
+    return this._widgetCamera(camera).timelinePicture(String(key || ''));
+  }
+
+  async widgetHeatmap({ camera, kind }) {
+    return this._widgetCamera(camera).heatmap(['people', 'vehicles'].includes(kind) ? kind : 'all');
   }
 
   _widgetCamera(camera) {

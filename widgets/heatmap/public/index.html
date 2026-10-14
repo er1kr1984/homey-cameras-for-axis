@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    [hidden] { display: none !important; }
+    :root {
+      --text: var(--homey-text-color, #1d1d1f);
+      --muted: var(--homey-text-color-light, #8a8a8e);
+      --tile: rgba(127,127,127,.14);
+      --font: var(--homey-font-family, -apple-system, system-ui, sans-serif);
+    }
+    html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 var(--font); }
+    body { padding: 10px 12px 10px; }
+    .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .head h2 { margin: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .head span { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .view { position: relative; border-radius: 8px; overflow: hidden; background: var(--tile); aspect-ratio: 4 / 3; }
+    .view img, .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .view img { object-fit: fill; filter: grayscale(.6) brightness(.8); }
+    .scale { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .scale i { flex: 1; height: 6px; border-radius: 3px; background: linear-gradient(90deg, rgba(40,90,255,.6), #2fd0ff, #ffe14d, #ff7a1a, #e5242b); }
+    .empty { color: var(--muted); font-size: 12px; padding: 8px 0 0; }
+  </style>
+</head>
+<body>
+  <div class="head"><h2 id="name"></h2><span id="sub"></span></div>
+  <div class="view" id="view"><img id="photo" alt="" /><canvas id="heat"></canvas></div>
+  <div class="scale" id="scale"><span>–</span><i></i><span>+</span></div>
+  <div class="empty" id="empty" hidden></div>
+  <script type="text/javascript">
+    function onHomeyReady(Homey) {
+      const settings = Homey.getSettings() || {};
+      const camera = settings.camera;
+      const kind = ['people', 'vehicles'].includes(settings.kind) ? settings.kind : 'all';
+      const REFRESH_MS = 5 * 60 * 1000;
+      const t = (k, v) => Homey.__(k, v);
+      const $ = (id) => document.getElementById(id);
+      let timer = null;
+      const fit = () => { try { Homey.setHeight(document.body.scrollHeight); } catch (e) { /* older Homey */ } };
+
+      $('sub').textContent = t({ people: 'widget.heatPeople', vehicles: 'widget.heatVehicles', all: 'widget.heatAll' }[kind]);
+
+      // 0..1 -> colour from transparent blue through yellow to red.
+      const STOPS = [[0, [40, 90, 255, 0]], [0.15, [40, 90, 255, 150]], [0.35, [47, 208, 255, 190]], [0.6, [255, 225, 77, 210]], [0.8, [255, 122, 26, 225]], [1, [229, 36, 43, 235]]];
+      function ramp(v) {
+        for (let i = 1; i < STOPS.length; i++) {
+          const [p1, c1] = STOPS[i];
+          const [p0, c0] = STOPS[i - 1];
+          if (v <= p1) {
+            const f = (v - p0) / (p1 - p0);
+            return c0.map((c, k) => Math.round(c + (c1[k] - c) * f));
+          }
+        }
+        return STOPS[STOPS.length - 1][1];
+      }
+
+      function draw(data) {
+        $('name').textContent = data.name;
+        const photo = $('photo');
+        if (data.jpeg) photo.src = `data:image/jpeg;base64,${data.jpeg}`;
+        photo.hidden = !data.jpeg;
+        const max = Math.max(...data.cells);
+        const empty = $('empty');
+        empty.hidden = max > 0;
+        empty.textContent = data.tracking ? t('widget.heatEmpty') : t('widget.notTracking');
+        $('scale').hidden = !(max > 0);
+        // Paint the grid small, then let the browser smooth it when scaling up.
+        const small = document.createElement('canvas');
+        small.width = data.w;
+        small.height = data.h;
+        const sc = small.getContext('2d');
+        const img = sc.createImageData(data.w, data.h);
+        data.cells.forEach((v, i) => {
+          // Square root: a few passes still show, busy paths don't drown the rest.
+          const rgba = v > 0 ? ramp(Math.sqrt(v / max)) : [0, 0, 0, 0];
+          img.data.set(rgba, i * 4);
+        });
+        sc.putImageData(img, 0, 0);
+        const canvas = $('heat');
+        const box = $('view').getBoundingClientRect();
+        canvas.width = Math.max(1, Math.round(box.width));
+        canvas.height = Math.max(1, Math.round(box.height));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.filter = 'blur(6px)';
+        ctx.drawImage(small, 0, 0, canvas.width, canvas.height);
+        fit();
+      }
+
+      async function refresh() {
+        clearTimeout(timer);
+        if (document.hidden) return;
+        if (!camera) {
+          $('empty').hidden = false;
+          $('empty').textContent = t('widget.pickCamera');
+          fit();
+          return;
+        }
+        try {
+          draw(await Homey.api('POST', '/heatmap', { camera, kind }));
+        } catch (err) {
+          $('empty').hidden = false;
+          $('empty').textContent = (err && err.message) || String(err);
+          fit();
+        }
+        timer = setTimeout(refresh, REFRESH_MS);
+      }
+
+      // Match the picture's shape once it has loaded.
+      $('photo').addEventListener('load', () => {
+        const p = $('photo');
+        if (p.naturalWidth) $('view').style.aspectRatio = `${p.naturalWidth} / ${p.naturalHeight}`;
+      });
+      document.addEventListener('visibilitychange', () => (document.hidden ? clearTimeout(timer) : refresh()));
+      refresh().then(() => Homey.ready());
+    }
+  </script>
+</body>
+</html>

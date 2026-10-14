@@ -90,7 +90,19 @@
     "traffic7": "Last 7 days",
     "notTracking": "Switch on 'Track and count people and vehicles' in this camera's settings to start counting.",
     "nothingCounted": "Nothing counted yet.",
-    "total": "total"
+    "total": "total",
+    "stayed": "__name__ in view for __n__ min",
+    "unusual": "Unusual: __n__ __what__ this hour",
+    "traffic30": "Last 30 days",
+    "usual": "usual",
+    "visitors": "Recent visitors",
+    "noVisitors": "Nobody counted yet.",
+    "heatPeople": "Where people walk",
+    "heatVehicles": "Where vehicles drive",
+    "heatAll": "Where people and vehicles go",
+    "heatEmpty": "No paths yet. They appear here as people and vehicles pass.",
+    "seconds": "__n__ s",
+    "minutes": "__n__ min"
   },
   "objects": {
     "one": {
@@ -120,5 +132,21 @@
       "motorcycle": "Motorbikes today",
       "vehicle": "Other vehicles today"
     }
+  },
+  "directions": {
+    "right": "left to right",
+    "left": "right to left",
+    "down": "towards the camera",
+    "up": "away from the camera",
+    "none": "stayed in place"
+  },
+  "summary": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "Last 7 days",
+    "and": "and",
+    "nothing": "__label__: nothing counted.",
+    "busiest": "Busiest hour __hour__ (__n__).",
+    "longest": "Longest stay: a __name__, __n__ min."
   }
 }

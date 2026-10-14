@@ -8,6 +8,10 @@ const { scanSubnet } = require('../../lib/scan');
 const CAMERA_TYPES = /camera|door station|encoder|intercom|thermal/i;
 const NOT_CAMERAS = /recorder|speaker|audio|door controller|radar|i\/o|switch/i;
 const isCamera = (type) => !type || (CAMERA_TYPES.test(type) && !NOT_CAMERAS.test(type));
+// Flow card filters: 'any', a category ('car'), or a group ('people', 'vehicles').
+const typeMatches = (type, category) => !type || type === 'any' || type === category
+  || (type === 'people' && category === 'person') || (type === 'vehicles' && category !== 'person');
+const colorMatches = (color, colors) => !color || color === 'any' || (colors || []).includes(color);
 const CHECK_TIMEOUT_MS = 6000; // per request while searching
 const LIST_DEADLINE_MS = 12000; // after the network search, for the logins
 
@@ -33,8 +37,18 @@ class CameraDriver extends Homey.Driver {
       schedule: card('schedule_changed'),
       inView: card('in_view_changed'),
       detected: card('object_detected'),
+      passed: card('object_passed'),
+      lingering: card('object_lingering'),
+      unusual: card('unusual_activity'),
+      summary: card('daily_summary'),
     };
-    this.triggers.detected.registerRunListener(async (args, state) => args.type === 'any' || args.type === state.category);
+    this.triggers.detected.registerRunListener(async (args, state) => typeMatches(args.type, state.category) && colorMatches(args.color, state.colors));
+    this.triggers.passed.registerRunListener(async (args, state) => typeMatches(args.type, state.category)
+      && (!args.direction || args.direction === 'any' || args.direction === state.direction) && colorMatches(args.color, state.colors));
+    this.triggers.lingering.registerRunListener(async (args, state) => typeMatches(args.type, state.category)
+      && Math.max(1, Math.round(Number(args.minutes) || 0)) === state.minutes);
+    this.triggers.unusual.registerRunListener(async (args, state) => !args.group || args.group === 'any' || args.group === state.group);
+    this.triggers.summary.registerRunListener(async (args, state) => args.time === state.time && (args.period || 'today') === state.period);
     this.triggers.sound.registerRunListener(async (args, state) => args.sound === 'any' || args.sound === state.sound);
     this.triggers.counted.registerRunListener(async (args, state) => !args.scenario || args.scenario.id === 'any' || args.scenario.id === state.topic);
     this.triggers.counted.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.countingChoices(query));
@@ -45,8 +59,11 @@ class CameraDriver extends Homey.Driver {
     flow.getConditionCard('is_night').registerRunListener(async (args) => args.device.getCapabilityValue('axis_night') === true);
     flow.getConditionCard('live_watched').registerRunListener(async (args) => args.device.isWatched());
     flow.getConditionCard('has_problem').registerRunListener(async (args) => args.device.getCapabilityValue('alarm_problem') === true);
+    flow.getConditionCard('object_in_view').registerRunListener(async (args) => args.device.inViewCount(args.type) > 0);
+    flow.getConditionCard('in_view_more').registerRunListener(async (args) => args.device.inViewCount(args.type) > Number(args.count));
     flow.getConditionCard('input_active').registerRunListener(async (args) => args.device.isInputActive(Number(args.port)));
 
+    flow.getActionCard('make_summary').registerRunListener(async (args) => args.device.summaryTokens(args.period));
     flow.getActionCard('take_snapshot').registerRunListener(async (args) => args.device.snapshotToken());
     const preset = flow.getActionCard('ptz_goto_preset');
     preset.registerRunListener(async (args) => args.device.ptzGotoPreset(args.preset));

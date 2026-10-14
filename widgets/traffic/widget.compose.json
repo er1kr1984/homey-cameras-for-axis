@@ -33,6 +33,12 @@
           "title": {
             "en": "Last 7 days, per day"
           }
+        },
+        {
+          "id": "month",
+          "title": {
+            "en": "Last 30 days, per day"
+          }
         }
       ]
     }

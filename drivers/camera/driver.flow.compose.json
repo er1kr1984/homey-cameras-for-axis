@@ -497,10 +497,10 @@
         "en": "A person or vehicle was detected"
       },
       "titleFormatted": {
-        "en": "A [[type]] was detected"
+        "en": "A [[type]] was detected (colour: [[color]])"
       },
       "hint": {
-        "en": "Each new person or vehicle the camera's Object Analytics recognises. Needs 'Track and count people and vehicles' on in the device settings. The picture is the camera's own close-up of the object when it sends one."
+        "en": "Each new person or vehicle the camera's Object Analytics recognises. Needs 'Track and count people and vehicles' on in the device settings. The picture is the camera's own close-up of the object when it sends one. Colour example: pick 'red' to only react to a person in a red top or a red car."
       },
       "args": [
         {
@@ -520,6 +520,12 @@
               "id": "person",
               "label": {
                 "en": "person"
+              }
+            },
+            {
+              "id": "vehicles",
+              "label": {
+                "en": "vehicle (any kind)"
               }
             },
             {
@@ -559,6 +565,87 @@
               }
             }
           ]
+        },
+        {
+          "name": "color",
+          "type": "dropdown",
+          "title": {
+            "en": "Colour"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "any colour"
+              }
+            },
+            {
+              "id": "black",
+              "label": {
+                "en": "black"
+              }
+            },
+            {
+              "id": "white",
+              "label": {
+                "en": "white"
+              }
+            },
+            {
+              "id": "grey",
+              "label": {
+                "en": "grey"
+              }
+            },
+            {
+              "id": "red",
+              "label": {
+                "en": "red"
+              }
+            },
+            {
+              "id": "orange",
+              "label": {
+                "en": "orange"
+              }
+            },
+            {
+              "id": "yellow",
+              "label": {
+                "en": "yellow"
+              }
+            },
+            {
+              "id": "green",
+              "label": {
+                "en": "green"
+              }
+            },
+            {
+              "id": "blue",
+              "label": {
+                "en": "blue"
+              }
+            },
+            {
+              "id": "purple",
+              "label": {
+                "en": "purple"
+              }
+            },
+            {
+              "id": "pink",
+              "label": {
+                "en": "pink"
+              }
+            },
+            {
+              "id": "brown",
+              "label": {
+                "en": "brown"
+              }
+            }
+          ]
         }
       ],
       "tokens": [
@@ -587,6 +674,529 @@
           "type": "image",
           "title": {
             "en": "Picture"
+          }
+        }
+      ]
+    },
+    {
+      "id": "object_passed",
+      "title": {
+        "en": "A person or vehicle went past"
+      },
+      "titleFormatted": {
+        "en": "A [[type]] went [[direction]] (colour: [[color]])"
+      },
+      "hint": {
+        "en": "Runs when a person or vehicle leaves the picture, with the way it went. Example: a car going right to left in the picture could be 'leaving the driveway'. Give each direction your own name in the device settings (under 'People and vehicles'). Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "type",
+          "type": "dropdown",
+          "title": {
+            "en": "Type"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "person or vehicle"
+              }
+            },
+            {
+              "id": "person",
+              "label": {
+                "en": "person"
+              }
+            },
+            {
+              "id": "vehicles",
+              "label": {
+                "en": "vehicle (any kind)"
+              }
+            },
+            {
+              "id": "car",
+              "label": {
+                "en": "car"
+              }
+            },
+            {
+              "id": "truck",
+              "label": {
+                "en": "truck"
+              }
+            },
+            {
+              "id": "bus",
+              "label": {
+                "en": "bus"
+              }
+            },
+            {
+              "id": "bicycle",
+              "label": {
+                "en": "bicycle"
+              }
+            },
+            {
+              "id": "motorcycle",
+              "label": {
+                "en": "motorbike"
+              }
+            },
+            {
+              "id": "vehicle",
+              "label": {
+                "en": "other vehicle"
+              }
+            }
+          ]
+        },
+        {
+          "name": "direction",
+          "type": "dropdown",
+          "title": {
+            "en": "Direction"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "any way"
+              }
+            },
+            {
+              "id": "right",
+              "label": {
+                "en": "left to right"
+              }
+            },
+            {
+              "id": "left",
+              "label": {
+                "en": "right to left"
+              }
+            },
+            {
+              "id": "down",
+              "label": {
+                "en": "towards the camera (top to bottom)"
+              }
+            },
+            {
+              "id": "up",
+              "label": {
+                "en": "away from the camera (bottom to top)"
+              }
+            }
+          ]
+        },
+        {
+          "name": "color",
+          "type": "dropdown",
+          "title": {
+            "en": "Colour"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "any colour"
+              }
+            },
+            {
+              "id": "black",
+              "label": {
+                "en": "black"
+              }
+            },
+            {
+              "id": "white",
+              "label": {
+                "en": "white"
+              }
+            },
+            {
+              "id": "grey",
+              "label": {
+                "en": "grey"
+              }
+            },
+            {
+              "id": "red",
+              "label": {
+                "en": "red"
+              }
+            },
+            {
+              "id": "orange",
+              "label": {
+                "en": "orange"
+              }
+            },
+            {
+              "id": "yellow",
+              "label": {
+                "en": "yellow"
+              }
+            },
+            {
+              "id": "green",
+              "label": {
+                "en": "green"
+              }
+            },
+            {
+              "id": "blue",
+              "label": {
+                "en": "blue"
+              }
+            },
+            {
+              "id": "purple",
+              "label": {
+                "en": "purple"
+              }
+            },
+            {
+              "id": "pink",
+              "label": {
+                "en": "pink"
+              }
+            },
+            {
+              "id": "brown",
+              "label": {
+                "en": "brown"
+              }
+            }
+          ]
+        }
+      ],
+      "tokens": [
+        {
+          "name": "type",
+          "type": "string",
+          "title": {
+            "en": "Type"
+          },
+          "example": {
+            "en": "Car"
+          }
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "title": {
+            "en": "Direction"
+          },
+          "example": {
+            "en": "Towards the house"
+          }
+        },
+        {
+          "name": "seconds",
+          "type": "number",
+          "title": {
+            "en": "Seconds in view"
+          },
+          "example": 12
+        },
+        {
+          "name": "colors",
+          "type": "string",
+          "title": {
+            "en": "Colours"
+          },
+          "example": {
+            "en": "white"
+          }
+        }
+      ]
+    },
+    {
+      "id": "object_lingering",
+      "title": {
+        "en": "A person or vehicle stays in view"
+      },
+      "titleFormatted": {
+        "en": "A [[type]] has been in view for [[minutes]] minutes"
+      },
+      "hint": {
+        "en": "Runs once for each person or vehicle that stays in the picture this long. Example: 2 minutes for someone hanging around the gate, 10 minutes for a car parked outside. The camera may stop following objects that stand completely still for a long time. Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "type",
+          "type": "dropdown",
+          "title": {
+            "en": "Type"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "person or vehicle"
+              }
+            },
+            {
+              "id": "person",
+              "label": {
+                "en": "person"
+              }
+            },
+            {
+              "id": "vehicles",
+              "label": {
+                "en": "vehicle (any kind)"
+              }
+            },
+            {
+              "id": "car",
+              "label": {
+                "en": "car"
+              }
+            },
+            {
+              "id": "truck",
+              "label": {
+                "en": "truck"
+              }
+            },
+            {
+              "id": "bus",
+              "label": {
+                "en": "bus"
+              }
+            },
+            {
+              "id": "bicycle",
+              "label": {
+                "en": "bicycle"
+              }
+            },
+            {
+              "id": "motorcycle",
+              "label": {
+                "en": "motorbike"
+              }
+            },
+            {
+              "id": "vehicle",
+              "label": {
+                "en": "other vehicle"
+              }
+            }
+          ]
+        },
+        {
+          "name": "minutes",
+          "type": "number",
+          "title": {
+            "en": "Minutes"
+          },
+          "placeholder": {
+            "en": "2"
+          },
+          "min": 1,
+          "max": 720,
+          "step": 1
+        }
+      ],
+      "tokens": [
+        {
+          "name": "type",
+          "type": "string",
+          "title": {
+            "en": "Type"
+          },
+          "example": {
+            "en": "Person"
+          }
+        },
+        {
+          "name": "minutes",
+          "type": "number",
+          "title": {
+            "en": "Minutes"
+          },
+          "example": 2
+        },
+        {
+          "name": "colors",
+          "type": "string",
+          "title": {
+            "en": "Colours"
+          },
+          "example": {
+            "en": "black, blue"
+          }
+        },
+        {
+          "name": "image",
+          "type": "image",
+          "title": {
+            "en": "Picture"
+          }
+        }
+      ]
+    },
+    {
+      "id": "unusual_activity",
+      "title": {
+        "en": "Unusual activity"
+      },
+      "titleFormatted": {
+        "en": "More [[group]] than usual"
+      },
+      "hint": {
+        "en": "Runs when the camera sees clearly more people or vehicles than usual for this hour, or any at an hour when there is normally nobody (for example 03:00). It learns what is usual from the counts, so it only starts after a week of counting. At most once an hour. Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "group",
+          "type": "dropdown",
+          "title": {
+            "en": "What"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "people or vehicles"
+              }
+            },
+            {
+              "id": "people",
+              "label": {
+                "en": "people"
+              }
+            },
+            {
+              "id": "vehicles",
+              "label": {
+                "en": "vehicles"
+              }
+            }
+          ]
+        }
+      ],
+      "tokens": [
+        {
+          "name": "what",
+          "type": "string",
+          "title": {
+            "en": "What"
+          },
+          "example": {
+            "en": "People"
+          }
+        },
+        {
+          "name": "count",
+          "type": "number",
+          "title": {
+            "en": "Count this hour"
+          },
+          "example": 4
+        },
+        {
+          "name": "usual",
+          "type": "number",
+          "title": {
+            "en": "Usual for this hour"
+          },
+          "example": 0.2
+        },
+        {
+          "name": "hour",
+          "type": "string",
+          "title": {
+            "en": "Hour"
+          },
+          "example": {
+            "en": "03:00"
+          }
+        }
+      ]
+    },
+    {
+      "id": "daily_summary",
+      "title": {
+        "en": "Traffic summary at a set time"
+      },
+      "titleFormatted": {
+        "en": "Summary of [[period]] at [[time]]"
+      },
+      "hint": {
+        "en": "Runs every day at the time you pick, with a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' Use the Summary tag in a notification or have a speaker read it out. Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "period",
+          "type": "dropdown",
+          "title": {
+            "en": "Period"
+          },
+          "values": [
+            {
+              "id": "today",
+              "label": {
+                "en": "today"
+              }
+            },
+            {
+              "id": "yesterday",
+              "label": {
+                "en": "yesterday"
+              }
+            }
+          ]
+        },
+        {
+          "name": "time",
+          "type": "time",
+          "title": {
+            "en": "Time"
+          }
+        }
+      ],
+      "tokens": [
+        {
+          "name": "summary",
+          "type": "string",
+          "title": {
+            "en": "Summary"
+          },
+          "example": {
+            "en": "Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9)."
+          }
+        },
+        {
+          "name": "people",
+          "type": "number",
+          "title": {
+            "en": "People"
+          },
+          "example": 34
+        },
+        {
+          "name": "vehicles",
+          "type": "number",
+          "title": {
+            "en": "Vehicles"
+          },
+          "example": 15
+        },
+        {
+          "name": "busiest",
+          "type": "string",
+          "title": {
+            "en": "Busiest hour"
+          },
+          "example": {
+            "en": "17:00"
           }
         }
       ]
@@ -633,6 +1243,173 @@
       "title": {
         "en": "Camera !{{has|has no}} problem"
       }
+    },
+    {
+      "id": "object_in_view",
+      "title": {
+        "en": "A person or vehicle !{{is|is not}} in view"
+      },
+      "titleFormatted": {
+        "en": "A [[type]] !{{is|is not}} in view"
+      },
+      "hint": {
+        "en": "Is the camera seeing one right now? Example: when the doorbell rings AND a person is in view of the garden camera. Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "type",
+          "type": "dropdown",
+          "title": {
+            "en": "Type"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "person or vehicle"
+              }
+            },
+            {
+              "id": "person",
+              "label": {
+                "en": "person"
+              }
+            },
+            {
+              "id": "vehicles",
+              "label": {
+                "en": "vehicle (any kind)"
+              }
+            },
+            {
+              "id": "car",
+              "label": {
+                "en": "car"
+              }
+            },
+            {
+              "id": "truck",
+              "label": {
+                "en": "truck"
+              }
+            },
+            {
+              "id": "bus",
+              "label": {
+                "en": "bus"
+              }
+            },
+            {
+              "id": "bicycle",
+              "label": {
+                "en": "bicycle"
+              }
+            },
+            {
+              "id": "motorcycle",
+              "label": {
+                "en": "motorbike"
+              }
+            },
+            {
+              "id": "vehicle",
+              "label": {
+                "en": "other vehicle"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in_view_more",
+      "title": {
+        "en": "!{{More|Not more}} than a number in view"
+      },
+      "titleFormatted": {
+        "en": "!{{More|Not more}} than [[count]] [[type]] in view"
+      },
+      "hint": {
+        "en": "Counts the people or vehicles the camera sees right now. Example: more than 3 people in the garden. Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "count",
+          "type": "number",
+          "title": {
+            "en": "Number"
+          },
+          "placeholder": {
+            "en": "3"
+          },
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "name": "type",
+          "type": "dropdown",
+          "title": {
+            "en": "Type"
+          },
+          "values": [
+            {
+              "id": "any",
+              "label": {
+                "en": "person or vehicle"
+              }
+            },
+            {
+              "id": "person",
+              "label": {
+                "en": "person"
+              }
+            },
+            {
+              "id": "vehicles",
+              "label": {
+                "en": "vehicle (any kind)"
+              }
+            },
+            {
+              "id": "car",
+              "label": {
+                "en": "car"
+              }
+            },
+            {
+              "id": "truck",
+              "label": {
+                "en": "truck"
+              }
+            },
+            {
+              "id": "bus",
+              "label": {
+                "en": "bus"
+              }
+            },
+            {
+              "id": "bicycle",
+              "label": {
+                "en": "bicycle"
+              }
+            },
+            {
+              "id": "motorcycle",
+              "label": {
+                "en": "motorbike"
+              }
+            },
+            {
+              "id": "vehicle",
+              "label": {
+                "en": "other vehicle"
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "actions": [
@@ -855,6 +1632,85 @@
           },
           "min": 0,
           "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "make_summary",
+      "title": {
+        "en": "Make a traffic summary"
+      },
+      "titleFormatted": {
+        "en": "Make a traffic summary of [[period]]"
+      },
+      "hint": {
+        "en": "Gives a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' to use in the next cards, for example in a notification. Works in Advanced Flows. Needs 'Track and count people and vehicles' on in the device settings."
+      },
+      "args": [
+        {
+          "name": "period",
+          "type": "dropdown",
+          "title": {
+            "en": "Period"
+          },
+          "values": [
+            {
+              "id": "today",
+              "label": {
+                "en": "today"
+              }
+            },
+            {
+              "id": "yesterday",
+              "label": {
+                "en": "yesterday"
+              }
+            },
+            {
+              "id": "week",
+              "label": {
+                "en": "the last 7 days"
+              }
+            }
+          ]
+        }
+      ],
+      "tokens": [
+        {
+          "name": "summary",
+          "type": "string",
+          "title": {
+            "en": "Summary"
+          },
+          "example": {
+            "en": "Today: 34 people, 12 cars and 3 bicycles."
+          }
+        },
+        {
+          "name": "people",
+          "type": "number",
+          "title": {
+            "en": "People"
+          },
+          "example": 34
+        },
+        {
+          "name": "vehicles",
+          "type": "number",
+          "title": {
+            "en": "Vehicles"
+          },
+          "example": 15
+        },
+        {
+          "name": "busiest",
+          "type": "string",
+          "title": {
+            "en": "Busiest hour"
+          },
+          "example": {
+            "en": "17:00"
+          }
         }
       ]
     }

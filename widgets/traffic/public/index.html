@@ -30,19 +30,27 @@
     svg { display: block; width: 100%; height: 170px; overflow: visible; }
     svg text { fill: var(--muted); font-size: 10px; font-family: var(--font); }
     svg .grid { stroke: var(--line); stroke-width: 1; }
+    .dirs { margin: -2px 0 6px; color: var(--muted); font-size: 11.5px; }
+    .dirs div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dirs b { color: var(--text); font-weight: 600; }
+    svg .usual { fill: none; stroke: var(--text); stroke-opacity: .55; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .legend { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .legend i { width: 16px; border-top: 1.5px dashed var(--text); opacity: .55; }
     .empty { color: var(--muted); font-size: 12px; padding: 16px 0; }
   </style>
 </head>
 <body>
   <div class="head"><h2 id="name"></h2><span id="period"></span></div>
   <div class="totals" id="totals"></div>
+  <div class="dirs" id="dirs"></div>
   <svg id="chart" viewBox="0 0 400 170" preserveAspectRatio="none" role="img"></svg>
+  <div class="legend" id="legend" hidden><i></i><span id="legendText"></span></div>
   <div class="empty" id="empty" hidden></div>
   <script type="text/javascript">
     function onHomeyReady(Homey) {
       const settings = Homey.getSettings() || {};
       const camera = settings.camera;
-      const period = settings.period === 'week' ? 'week' : 'day';
+      const period = ['week', 'month'].includes(settings.period) ? settings.period : 'day';
       const ORDER = ['person', 'car', 'truck', 'bus', 'bicycle', 'motorcycle', 'vehicle'];
       const REFRESH_MS = 60000;
       const t = (k, v) => Homey.__(k, v);
@@ -52,7 +60,8 @@
       const fit = () => { try { Homey.setHeight(document.body.scrollHeight); } catch (e) { /* older Homey */ } };
       const color = (c) => getComputedStyle(document.documentElement).getPropertyValue(`--${c}`).trim();
 
-      $('period').textContent = t(period === 'week' ? 'widget.traffic7' : 'widget.traffic24');
+      $('period').textContent = t({ day: 'widget.traffic24', week: 'widget.traffic7', month: 'widget.traffic30' }[period]);
+      $('legendText').textContent = t('widget.usual');
 
       function svg(tag, attrs, text) {
         const e = document.createElementNS(NS, tag);
@@ -83,11 +92,28 @@
           s.append(sw, b, document.createTextNode(t(`objects.many.${c}`)));
           totals.append(s);
         }
+        // Which way they went: "People: 12 towards the house · 9 away from the house"
+        const dirs = $('dirs');
+        dirs.textContent = '';
+        for (const c of cats) {
+          const list = (data.directions || {})[c];
+          if (!list || !list.length) continue;
+          const row = document.createElement('div');
+          row.append(document.createTextNode(`${t(`objects.many.${c}`)}: `));
+          list.forEach((d, i) => {
+            if (i) row.append(document.createTextNode(' · '));
+            const b = document.createElement('b');
+            b.textContent = d.n;
+            row.append(b, document.createTextNode(` ${d.name}`));
+          });
+          dirs.append(row);
+        }
         const chart = $('chart');
         chart.textContent = '';
         const empty = $('empty');
         if (!cats.length) {
           chart.hidden = true;
+          $('legend').hidden = true;
           empty.hidden = false;
           empty.textContent = data.tracking ? t('widget.nothingCounted') : t('widget.notTracking');
           fit();
@@ -98,7 +124,8 @@
         const W = 400; const H = 170; const left = 22; const bottom = 18; const top = 4;
         const n = data.labels.length;
         const stack = data.labels.map((_, i) => cats.reduce((sum, c) => sum + data.series[c][i], 0));
-        const max = niceMax(Math.max(...stack));
+        const usual = data.usual || null;
+        const max = niceMax(Math.max(...stack, ...(usual || [0])));
         const y = (v) => top + (H - bottom - top) * (1 - v / max);
         for (const v of [0, max / 2, max]) {
           chart.append(svg('line', { class: 'grid', x1: left, x2: W, y1: y(v), y2: y(v) }));
@@ -118,13 +145,21 @@
             chart.append(rect);
             acc += v;
           }
-          // Labels: every 3rd hour, or every day.
-          const show = period === 'week' || i % 3 === 0;
+          // Labels: every 3rd hour, every day of the week, every 5th day of the month.
+          const show = period === 'week' || (period === 'month' ? (n - 1 - i) % 5 === 0 : i % 3 === 0);
           if (show) {
-            const text = period === 'week' ? new Date(`${label}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' }) : label.slice(0, 2);
+            const day = new Date(`${label}T12:00:00`);
+            const text = period === 'week' ? day.toLocaleDateString(undefined, { weekday: 'short' })
+              : period === 'month' ? `${day.getDate()}/${day.getMonth() + 1}` : label.slice(0, 2);
             chart.append(svg('text', { x: left + i * slot + slot / 2, y: H - 4, 'text-anchor': 'middle' }, text));
           }
         });
+        // What is usual for each hour (after a week of counting).
+        $('legend').hidden = !usual;
+        if (usual) {
+          const points = usual.map((v, i) => `${left + i * slot + slot / 2},${y(v)}`).join(' ');
+          chart.append(svg('polyline', { class: 'usual', points }));
+        }
         fit();
       }
 
