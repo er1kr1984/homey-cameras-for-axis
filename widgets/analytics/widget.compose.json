@@ -20,7 +20,10 @@
       "title": {
         "en": "Draw boxes around people and vehicles"
       },
-      "value": true
+      "value": true,
+      "hint": {
+        "en": "Only on cameras that send scene metadata. With AXIS Object Analytics the boxes say what it is (person, car, …) and its colours; some newer cameras without it show plain 'moving object' boxes; older cameras (for example AXIS OS 9.80) send no boxes at all."
+      }
     },
     {
       "id": "quality",

@@ -592,7 +592,8 @@ class CameraDevice extends Homey.Device {
         const c = categoryOf(o.type);
         return {
           ...o,
-          name: c && CATEGORIES.includes(c) ? this._objectName(c) : this.homey.__(`objects.one.${c}`) || o.type,
+          // Without a type (cameras that track movement but don't classify it): "Moving object".
+          name: c ? this._objectName(c) : this.homey.__('objects.moving'),
           colors: (o.colors || []).map((x) => this.homey.__(`colors.${x}`) || x),
         };
       }) : [],

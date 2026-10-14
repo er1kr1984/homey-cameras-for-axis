@@ -159,7 +159,8 @@
       "motorcycle": "Motorbikes today",
       "vehicle": "Other vehicles today"
     },
-    "noHardhat": "person without a hard hat"
+    "noHardhat": "person without a hard hat",
+    "moving": "Moving object"
   },
   "directions": {
     "right": "left to right",

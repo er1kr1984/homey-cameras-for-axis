@@ -19,13 +19,22 @@ server and no extra software are needed. (If you use AXIS Camera Station Pro, se
   <img src="docs/screenshots/widget-analytics-dark.png" width="32%" alt="Analytics widget in dark mode">
 </p>
 
-<sub>Screenshots use a drawn demo scene and made-up data.</sub>
+<sub>Screenshots use a drawn demo scene and made-up data. They show a camera with **AXIS Object
+Analytics** — labelled boxes, colours and counts are **not available on every camera**. See
+[What your camera needs](#what-your-camera-needs).</sub>
+
+> **Not every Axis device can do everything in this README.** What you get depends on the model,
+> its AXIS OS version and the camera apps installed on it. Boxes around objects, people and vehicle
+> counting, colours, faces and licence plates need **AXIS Object Analytics** with scene metadata;
+> older cameras (for example AXIS OS 9.80) send **no boxes at all**. The app asks every device what
+> it supports and only shows that — so two cameras can look quite different in Homey.
 
 ---
 
 ## Contents
 
 - [What it can do](#what-it-can-do)
+- [What your camera needs](#what-your-camera-needs)
 - [It adapts to each device](#it-adapts-to-each-device)
 - [Getting started](#getting-started)
 - [Camera account and rights](#camera-account-and-rights)
@@ -50,46 +59,106 @@ server and no extra software are needed. (If you use AXIS Camera Station Pro, se
   a time you choose.
 - **Camera picture** on the device, and a fresh picture with every flow that needs one.
 - **Boxes around people and vehicles** on the live picture (Analytics widget), labelled with what
-  they are and their colours.
+  they are and their colours — *only on cameras that send scene metadata; see below*.
 
 ### Know what happens
 - **Motion** — from AXIS Video Motion Detection, ONVIF motion, Object Analytics and the PIR sensor.
-- **People and vehicles** (AXIS Object Analytics): every person, car, truck, bus, bicycle and
-  motorbike is followed while it is in view and counted once, with:
-  - colours (vehicle colour, top and trousers separately), bag, hat, licence plate and speed when
-    the camera reports them;
+- **People and vehicles** — *needs AXIS Object Analytics*: every person, car, truck, bus, bicycle
+  and motorbike is followed while it is in view and counted once, with:
+  - colours (vehicle colour, top and trousers separately), bag, hat, licence plate and speed — only
+    those details the camera model actually reports;
   - **direction** of travel, with your own names ("Towards the house");
   - **time in view** and a flow when someone stays longer than N minutes;
   - **faces and licence plates** as their own events, with the camera's close-up.
-- **Object Analytics scenarios** — object in area, line crossing, tailgating, time in area, missing
+- **Object Analytics scenarios** (*needs AXIS Object Analytics; available scenario types depend
+  on its version*) — object in area, line crossing, tailgating, time in area, missing
   hard hat — each as an alarm and a flow; **crossline counting** with totals per type and
   **occupancy in area** with a live count.
 - **Insights over time** — today's counts per type, motion per hour, a **heatmap** of where people
   and vehicles go, the usual pattern per hour after a week, **unusual activity** flows and a
   **daily summary** in plain words ("Today: 34 people, 12 cars… Busiest hour 17:00").
-- **Sounds** — audio detection, sound classification (glass breaking, screaming, shouting, speech),
+- **Sounds** (*cameras with a microphone; classification needs a model with audio analytics*) —
+  audio detection, sound classification (glass breaking, screaming, shouting, speech),
   unusual sounds, sound level in dB and the camera's own sound limits.
 - **Day/night** mode and the **IR light**.
 - **Inputs and outputs** — door contacts wired to the camera, relays, virtual inputs.
-- **Door stations** — call button pressed (doorbell, with a picture), call state, PIN entered,
+- **Door stations** (*Axis door stations/intercoms only*) — call button pressed (doorbell, with a picture), call state, PIN entered,
   card or tag shown, entry allowed/refused, someone at the door.
 
 ### Keep an eye on the devices
 - **Camera problems** in plain words: tampering (covered, knocked, turned away), memory card
   failures, network loss, too hot or too cold, casing opened, power and PoE problems, fan failure,
   bitrate problems, and **someone blocked after wrong passwords**.
-- **Camera temperature**, **memory card use (%)**, **power use (W)** on cameras that measure it,
-  and **PoE power per port** on Axis recorders.
+- **Camera temperature** (devices with temperature sensors), **memory card use (%)** (with a card
+  inserted), **power use (W)** (only devices that measure their own power draw), and **PoE power per
+  port** (Axis recorders with PoE).
 - **Recording** and **live view being watched** (also by others, e.g. in AXIS Camera Station).
 
 ### Control
 - **Privacy mode** — cover the whole picture (live view, recordings, everything) with one switch
   or flow.
 - **Text on the picture** ("Away mode", the temperature, …).
-- **Play a sound** stored on the camera or a paired network speaker, **siren and light** profiles.
-- **PTZ** presets and home, **IR/white light**, **outputs** (gates, relays), **virtual inputs**
+- **Play a sound** stored on the camera (needs audio out or a paired network speaker), **siren and
+  light** profiles (devices with a siren/strobe).
+- **PTZ** presets and home (PTZ or view areas), **IR/white light** (models with light control), **outputs** (gates, relays), **virtual inputs**
   (to start the camera's own action rules).
 - **Restart** a camera that hangs; **reset counts** and **test** an Object Analytics alarm.
+
+## What your camera needs
+
+### Feature by feature
+
+| Feature | The device needs | If it doesn't have it |
+|---|---|---|
+| Picture, live video | A camera or door station (any AXIS OS) | Recorders, speakers: no picture or live view |
+| Motion alarm, motion insights (per hour, usual, unusual, summary) | Motion detection (AXIS Video Motion Detection or ONVIF motion) | — |
+| Events | AXIS OS 10+ uses WebSocket; older AXIS OS uses RTSP | Same features, slightly different transport |
+| **Labelled boxes** (person, car, …) on the live picture | **AXIS Object Analytics** sending scene metadata (`AnalyticsSceneDescription`) | See next two rows |
+| Plain "moving object" boxes (no type) | Scene metadata from the motion tracker (`VideoMotionTracker`), found on some newer AXIS OS versions without Object Analytics | Not counted; only drawn in the Analytics widget |
+| No boxes at all | Older AXIS OS (e.g. **9.80**) sends empty scene frames | You still get motion and motion insights |
+| People/vehicle counting, direction, time in view, heatmap, Visitors and Traffic per type | AXIS Object Analytics + "Track and count people and vehicles" on | Traffic widget shows motion instead |
+| Vehicle type (car/bus/truck), colours, top/trouser colours, bag, hat | Object Analytics on a model and version that reports these attributes | Missing details are simply left empty |
+| Faces, licence plates (close-ups) | A camera whose Object Analytics reports `HumanFace` / `LicensePlate` | No face/plate flows |
+| Licence plate **number** | A camera or app that reads plates | Plate close-up without the number |
+| Speed, position | Radar or radar-video fusion cameras | Speed token is 0 |
+| Crossline counting, occupancy, tailgating, time in area, missing hard hat | Object Analytics with those scenarios set up (types depend on its version) | — |
+| Motion Guard / Fence Guard / Loitering Guard alarms | That camera app installed and running | — |
+| Sound level, sound detection | A microphone (and audio switched on) | — |
+| Sound classification (glass break, scream, shout, speech), unusual sound | A model with audio analytics | — |
+| Body heat (PIR) | A model with a PIR sensor | — |
+| IR / white light control | A model with light control | — |
+| Privacy mode | Privacy masks (most cameras) and an **administrator** account | Action refused with a plain message |
+| Text on the picture | Any camera (dynamic overlay on newer AXIS OS, the text field on older) | — |
+| Play a sound | Audio out or a paired network speaker, and sound clips on the device | — |
+| Siren and light | A device with a siren/strobe | — |
+| Temperature | Temperature sensors | — |
+| Memory card used | A memory card inserted | — |
+| Power (W) | AXIS OS that measures the device's own power draw (Power settings API) | — |
+| PoE power per port | An Axis recorder with PoE ports | — |
+| Door station flows | An Axis door station / intercom | — |
+| PTZ presets | PTZ, or digital PTZ / view areas | — |
+
+### What the tested devices do
+
+| | P3267-LVE Mic | A8207-VE door station | M1065-L | M1065-LW | M2026-LE Mk II | M3104-LVE | S3008 recorder |
+|---|---|---|---|---|---|---|---|
+| AXIS OS | 12.6 | 11.11 | 9.80 | 9.80 | 9.80 | 9.80 | 12.10 |
+| Picture and live view | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
+| Motion and motion insights | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
+| Labelled boxes, people/vehicle counting | ✓ (Object Analytics) | – | – | – | – | – | – |
+| Plain moving-object boxes | (has labelled) | motion tracker metadata¹ | – | – | – | – | – |
+| Object Analytics scenarios | ✓ | – | – | – | – | – | – |
+| Sound | ✓ level, detection, classification | ✓ detection | – | ✓ detection | – | – | – |
+| Body heat (PIR) | – | ✓ | ✓ | ✓ | – | – | – |
+| IR light | ✓ | – | ✓ | ✓ | ✓ | ✓ | – |
+| Privacy mode | ✓ | ✓ | ✓ (tried) | ✓ | ✓ | ✓ | – |
+| Temperature | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Power (W) | ✓ | – | – | – | – | – | – |
+| PoE per port | – | – | – | – | – | – | ✓ |
+| Door station flows | – | ✓ | – | – | – | – | – |
+
+¹ The door station offers the motion tracker's metadata; plain boxes in the widget are not yet
+confirmed on a live device.
 
 ## It adapts to each device
 
