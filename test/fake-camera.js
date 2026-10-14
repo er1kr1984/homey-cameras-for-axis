@@ -169,6 +169,10 @@ class FakeCamera {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             return res.end('OK');
           }
+          if (group === 'Image.I0.Text') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('root.Image.I0.Text.TextEnabled=yes\nroot.Image.I0.Text.String=Garage\n');
+          }
           if (group === 'Image.I0.Overlay.MaskWindows') {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             return res.end(Object.entries(this.maskParams).map(([k, v]) => `root.${k}=${v}\n`).join(''));

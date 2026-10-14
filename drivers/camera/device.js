@@ -1362,6 +1362,11 @@ class CameraDevice extends Homey.Device {
   // Text on the picture; the overlay id is kept to change or remove it later.
   async showText(text, position) {
     const dynamic = Boolean(this.features && this.features.dynamicOverlay);
+    // Older cameras: the text goes into the camera's own text field; keep what was there.
+    if (!dynamic && !this.getStoreValue('text_backup')) {
+      const backup = await this.client.textSettings().catch(() => null);
+      if (backup) await this.setStoreValue('text_backup', backup).catch(this.error);
+    }
     const id = await this._act('text on the picture', () => this.client.showText(String(text || ''), {
       position: position || 'topLeft', id: this.getStoreValue('overlay_id'), dynamic,
     }));
@@ -1370,8 +1375,11 @@ class CameraDevice extends Homey.Device {
 
   async removeText() {
     const dynamic = Boolean(this.features && this.features.dynamicOverlay);
-    await this._act('remove text', () => this.client.removeText({ id: this.getStoreValue('overlay_id'), dynamic }));
+    const backup = this.getStoreValue('text_backup');
+    if (!dynamic && backup) await this._act('remove text', () => this.client.restoreTextSettings(backup));
+    else await this._act('remove text', () => this.client.removeText({ id: this.getStoreValue('overlay_id'), dynamic }));
     await this.setStoreValue('overlay_id', null).catch(this.error);
+    await this.setStoreValue('text_backup', null).catch(this.error);
   }
 
   _aoaScenario(arg) {

@@ -198,6 +198,10 @@ test('vapix: privacy mode, sound clips, siren, restart, text, temperature, memor
   assert.deepStrictEqual(cam.lastOverlay, { method: 'setText', params: { identity: 7, text: 'Home', position: 'topLeft' } });
   await c.showText('Old camera', { dynamic: false });
   assert.deepStrictEqual(cam.lastParamUpdate, { 'Image.I0.Text.TextEnabled': 'yes', 'Image.I0.Text.String': 'Old camera' });
+  const own = await c.textSettings();
+  assert.deepStrictEqual(own, { enabled: 'yes', string: 'Garage' });
+  await c.restoreTextSettings(own);
+  assert.deepStrictEqual(cam.lastParamUpdate, { 'Image.I0.Text.TextEnabled': 'yes', 'Image.I0.Text.String': 'Garage' });
 
   const t = await c.temperatures();
   assert.deepStrictEqual(t.sensors.map((x) => [x.name, x.celsius]), [['Main', 43.5], ['CPU', 50.44]]);
