@@ -231,8 +231,19 @@ class AxisApp extends Homey.App {
         heatMax: Math.max(0, ...heat),
         hours: Object.keys(d.tracker.history).length,
       } : null;
+      // Visitor pictures: are they whole JPEGs (FFD8 ... FFD9)?
+      const pictures = [];
+      for (const e of (d.timeline ? d.timeline.list('all', 12) : [])) {
+        const p = await d.timeline.picture(e.key).catch(() => null);
+        const j = p && p.jpeg;
+        pictures.push({
+          at: new Date(e.at).toISOString(), category: e.category, kind: p ? p.kind : null, bytes: j ? j.length : 0,
+          start: j ? j.subarray(0, 2).toString('hex') : '', end: j ? j.subarray(-2).toString('hex') : '',
+        });
+      }
       return {
         name: d.getName(),
+        pictures,
         tracking,
         analytics,
         objectAnalytics,
