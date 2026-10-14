@@ -34,6 +34,7 @@ const TRACK_SUMMARY_MS = 15 * 60 * 1000;
 const APPS_CHECK_MS = 30 * 60 * 1000; // installed camera apps (a new one can add events)
 const TRACK_TICK_MS = 5000; // objects that stopped being reported are let go
 const FLOW_USE_CHECK_MS = 60 * 1000; // how long "does a flow use this card" is remembered
+const SAVE_SOON_MS = 30 * 1000; // after a person/vehicle left: save its path within this
 const POWER_MS = 60 * 1000; // power use and PoE ports
 const STATUS_MS = 10 * 60 * 1000; // temperature, memory card, privacy mode, counts
 const CALL_ACTIVE = /calling|ringing|active|connected|conversation/i; // call states while a call is on
@@ -705,6 +706,7 @@ class CameraDevice extends Homey.Device {
     id, category, direction, seconds, colors, attrs,
   }) {
     this.timeline.finish(id, { direction, seconds, attrs });
+    this._saveSoon();
     if (!direction) return;
     const name = this._objectName(category);
     this.driver.triggers.passed.trigger(this, {
@@ -839,6 +841,17 @@ class CameraDevice extends Homey.Device {
     }
     const types = Object.entries(st.types).map(([t, e]) => `${t} ${e.n}x (best ${e.best.toFixed(2)})`).join(', ');
     this.diag(`tracking: ${st.frames} frames, objects: ${types || 'none'}; counted ${st.counted}${rate}`);
+  }
+
+  // Something worth keeping happened (a path for the heatmap, a finished visitor): save
+  // within SAVE_SOON_MS instead of waiting for the regular save, so an app restart or
+  // update doesn't lose it. Several in a row are saved once.
+  _saveSoon() {
+    if (this.saveSoonTimer) return;
+    this.saveSoonTimer = this.homey.setTimeout(() => {
+      this.saveSoonTimer = null;
+      this._saveTraffic();
+    }, SAVE_SOON_MS);
   }
 
   _saveTraffic() {
@@ -1636,6 +1649,7 @@ class CameraDevice extends Homey.Device {
 
   _stop() {
     this.homey.clearTimeout(this.startTimer);
+    this.homey.clearTimeout(this.saveSoonTimer);
     this.homey.clearInterval(this.statusTimer);
     this.homey.clearInterval(this.powerTimer);
     this._saveTraffic();

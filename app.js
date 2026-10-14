@@ -221,8 +221,19 @@ class AxisApp extends Homey.App {
         configuration: await tryJson('/local/objectanalytics/control.cgi', 'getConfiguration', undefined, '1.2'),
         capabilities: await tryJson('/local/objectanalytics/control.cgi', 'getConfigurationCapabilities', undefined, '1.2'),
       } : null;
+      const heat = d.tracker ? d.tracker.heatmap('all').cells : [];
+      const tracking = d.tracker ? {
+        on: Boolean(d.getSetting('scene_counts')),
+        today: d.tracker.today(),
+        inView: d.tracker.objects.size,
+        heatDay: d.tracker.heat.day,
+        heatCells: heat.filter((v) => v > 0).length,
+        heatMax: Math.max(0, ...heat),
+        hours: Object.keys(d.tracker.history).length,
+      } : null;
       return {
         name: d.getName(),
+        tracking,
         analytics,
         objectAnalytics,
         appNames,
