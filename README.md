@@ -8,21 +8,6 @@ over [VAPIX](https://developer.axis.com/vapix/), Axis's open device API. No clou
 server and no extra software are needed. (If you use AXIS Camera Station Pro, see the separate app
 [Homey-AXIS-Camera-Station-Pro](https://github.com/er1kr1984/Homey-AXIS-Camera-Station-Pro).)
 
-<p align="center">
-  <img src="docs/screenshots/widget-analytics.png" width="32%" alt="Analytics widget: picture with boxes around people and a car, scenarios, counters and latest events">
-  <img src="docs/screenshots/widget-visitors.png" width="32%" alt="Visitors widget: close-ups of recent people and cars with colours and direction">
-  <img src="docs/screenshots/widget-traffic.png" width="32%" alt="Traffic widget: people, cars and bicycles per hour with the usual line">
-</p>
-<p align="center">
-  <img src="docs/screenshots/widget-heatmap.png" width="32%" alt="Heatmap widget: where people and vehicles walk and drive">
-  <img src="docs/screenshots/widget-overview.png" width="32%" alt="Overview widget: all cameras with motion, counts and problems">
-  <img src="docs/screenshots/widget-analytics-dark.png" width="32%" alt="Analytics widget in dark mode">
-</p>
-
-<sub>Screenshots use a drawn demo scene and made-up data. They show a camera with **AXIS Object
-Analytics** — labelled boxes, colours and counts are **not available on every camera**. See
-[What your camera needs](#what-your-camera-needs).</sub>
-
 > **Not every Axis device can do everything in this README.** What you get depends on the model,
 > its AXIS OS version and the camera apps installed on it. Boxes around objects, people and vehicle
 > counting, colours, faces and licence plates need **AXIS Object Analytics** with scene metadata;
@@ -221,10 +206,6 @@ If an action needs more rights than the account has, the flow says so in plain w
 | **Heatmap** | Where people and vehicles walk and drive, over the camera picture; older paths fade. |
 | **Overview** | All cameras in one list: motion, people/vehicles in view, motion today, sound level, counters, problems, latest event. |
 
-| | |
-|---|---|
-| <img src="docs/screenshots/widget-visitors-dark.png" alt="Visitors widget, dark"> | <img src="docs/screenshots/widget-traffic-dark.png" alt="Traffic widget, dark"> |
-| <img src="docs/screenshots/widget-heatmap-dark.png" alt="Heatmap widget, dark"> | <img src="docs/screenshots/widget-overview-dark.png" alt="Overview widget, dark"> |
 
 ## All flow cards
 
