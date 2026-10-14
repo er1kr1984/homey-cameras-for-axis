@@ -82,6 +82,11 @@ class CameraDevice extends Homey.Device {
     this.trackStats = null;
     this.trackSummaryTimer = this.homey.setInterval(() => this._trackSummary(), TRACK_SUMMARY_MS);
     this.features = this.getStoreValue('features') || null;
+    // What earlier readings found (kept so capabilities don't disappear at every start,
+    // before the first reading): PoE port numbers, power measurable, memory card present.
+    this.poePortNumbers = this.getStoreValue('poe_ports') || null;
+    this.powerReadable = this.getStoreValue('power_readable') || false;
+    this.hasMemoryCard = this.getStoreValue('memory_card') || false;
     this.instances = this.getStoreValue('event_instances') || [];
     // Every device reports its health; everything else is added once the device has said
     // what it can do (_syncCapabilities).
@@ -1459,9 +1464,12 @@ class CameraDevice extends Homey.Device {
     if (f.disks) {
       const disks = await this.client.disks().catch(() => null);
       const sd = disks && disks.find((d) => d.id === 'SD_DISK' && d.totalKB > 0);
-      const had = this.hasMemoryCard;
-      this.hasMemoryCard = Boolean(sd);
-      if (had !== this.hasMemoryCard) await this._syncCapabilities();
+      // Only a successful answer changes what we know (a failed request says nothing).
+      if (disks && Boolean(sd) !== Boolean(this.hasMemoryCard)) {
+        this.hasMemoryCard = Boolean(sd);
+        await this.setStoreValue('memory_card', this.hasMemoryCard).catch(this.error);
+        await this._syncCapabilities();
+      }
       if (sd && this.hasCapability('axis_storage')) {
         await this.setCapabilityValue('axis_storage', Math.round(((sd.totalKB - sd.freeKB) / sd.totalKB) * 100)).catch(this.error);
       }
@@ -1491,8 +1499,9 @@ class CameraDevice extends Homey.Device {
         return null;
       });
       const readable = Boolean(p && p.current !== null);
-      if (readable !== Boolean(this.powerReadable)) {
+      if (p && readable !== Boolean(this.powerReadable)) {
         this.powerReadable = readable;
+        await this.setStoreValue('power_readable', readable).catch(this.error);
         if (p) this.diag(`power: ${readable ? `${p.current} W now, PoE class ${p.poeClass === null ? '?' : p.poeClass}` : 'this camera cannot measure its power use'}`);
         await this._syncCapabilities();
       }
@@ -1508,6 +1517,7 @@ class CameraDevice extends Homey.Device {
       const numbers = ports.map((x) => x.port).sort((a, b) => a - b);
       if (numbers.join(',') !== (this.poePortNumbers || []).join(',')) {
         this.poePortNumbers = numbers;
+        await this.setStoreValue('poe_ports', numbers).catch(this.error);
         this.diag(`PoE ports: ${ports.map((x) => `${x.port}: ${x.status || '?'}${x.watts !== null ? ` ${x.watts} W` : ''}`).join('; ')}`);
         await this._syncCapabilities();
       }

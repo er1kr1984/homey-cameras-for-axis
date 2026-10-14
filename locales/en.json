@@ -18,7 +18,7 @@
   "device": {
     "snapshot": "Picture",
     "live": "Live",
-    "poePort": "PoE port {{n}}"
+    "poePort": "PoE port __n__"
   },
   "flow": {
     "anyScenario": "Any scenario"
@@ -113,7 +113,7 @@
     "noMotionYet": "No motion yet.",
     "motionToday": "motion today",
     "motionMinutes": "__n__ min of motion",
-    "blockedIp": "Blocked {{address}} after wrong passwords",
+    "blockedIp": "Blocked __address__ after wrong passwords",
     "soundAbove": "Sound above the camera's limit",
     "soundBelow": "Sound below the camera's limit",
     "pir": "Body heat sensed",
@@ -123,7 +123,7 @@
     "accessGranted": "Entry allowed",
     "accessDenied": "Entry refused",
     "face": "Face seen",
-    "plate": "Licence plate seen {{plate}}",
+    "plate": "Licence plate seen __plate__",
     "privacyOn": "Privacy mode on",
     "privacyOff": "Privacy mode off"
   },
@@ -205,10 +205,10 @@
     "beige": "beige"
   },
   "details": {
-    "top": "{{c}} top",
-    "bottom": "{{c}} trousers",
+    "top": "__c__ top",
+    "bottom": "__c__ trousers",
     "hat": "hat",
     "bag": "bag",
-    "speed": "{{n}} km/h"
+    "speed": "__n__ km/h"
   }
 }
