@@ -130,9 +130,9 @@ class AxisApp extends Homey.App {
     device.diag(`widget viewer offer (${mode})`);
     try {
       const { answerSdp } = await this.getRelay().openViewer({
-        camera: device.liveCamera(), mode, startProfile: 'low', viewerOfferSdp: sdp,
+        camera: device.liveCamera(), mode, startProfile: 'low', viewerOfferSdp: sdp, maxMs: device.liveLimitMs(),
       });
-      return { answerSdp };
+      return { answerSdp, maxMs: device.liveLimitMs() };
     } catch (err) {
       if (err.code === 'too_many_streams') throw new Error('Too many live streams');
       throw new Error(this.friendly(err));

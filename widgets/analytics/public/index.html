@@ -32,6 +32,7 @@
     .tag { padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
     .tag.live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--alert); }
     .tag.motion { background: rgba(229,72,77,.85); }
+    .status { text-shadow: 0 1px 3px rgba(0,0,0,.8); }
     .status { position: absolute; inset: 0; display: grid; place-items: center; color: #ddd; font-size: 12px; text-align: center; padding: 0 16px; }
     .info { padding: 10px 2px 2px; }
     .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -80,12 +81,15 @@
       const SCENE_MS = 400;
       const LIVE_TIMEOUT_MS = 8000;
       const PICTURE_MS = 2000;
+      const PAUSED_PICTURE_MS = 15000; // after the live time limit: a fresh picture now and then
       const ICE_WAIT_MS = 2500;
       let pc = null;
       let liveTimer = null;
       let pictureTimer = null;
       let retryTimer = null;
       let retries = 0;
+      let paused = false; // live time limit reached: wait for a tap
+      let limitTimer = null;
       let stateTimer = null;
       let sceneTimer = null;
       let mode = 'connecting';
@@ -133,6 +137,8 @@
       }
 
       async function connect() {
+        paused = false;
+        clearTimeout(limitTimer);
         stopLive();
         clearTimeout(retryTimer);
         if (document.hidden) return;
@@ -162,9 +168,12 @@
           await conn.setLocalDescription(await conn.createOffer());
           await waitForIce(conn);
           if (pc !== conn) return;
-          const { answerSdp } = await Homey.api('POST', '/offer', { camera, sdp: conn.localDescription.sdp, quality });
+          const { answerSdp, maxMs } = await Homey.api('POST', '/offer', { camera, sdp: conn.localDescription.sdp, quality });
           if (pc !== conn) return;
           await conn.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+          // The camera's "Close live view after" setting: stop a little before Homey does
+          // and wait for a tap instead of reconnecting by itself.
+          if (maxMs > 0) limitTimer = setTimeout(pause, Math.max(5000, maxMs - 2000));
         } catch (err) {
           if (pc !== conn) return;
           stopLive();
@@ -186,6 +195,20 @@
         renderOverlay();
       };
 
+      function pause() {
+        paused = true;
+        stopLive();
+        stopPictures();
+        startPictures();
+      }
+
+      $('stage').addEventListener('click', () => {
+        if (!paused) return;
+        retries = 0;
+        stopPictures();
+        connect();
+      });
+
       function startPictures() {
         if (pictureTimer || document.hidden) return;
         mode = 'picture';
@@ -194,7 +217,8 @@
             const { jpeg } = await Homey.api('POST', '/snapshot', { camera });
             img.src = `data:image/jpeg;base64,${jpeg}`;
             img.hidden = false;
-            status.hidden = true;
+            status.hidden = !paused;
+            if (paused) status.textContent = t('tapForLive');
           } catch (e) {
             if (img.hidden) { status.hidden = false; status.textContent = (e && e.message) || String(e); }
           }
@@ -204,10 +228,10 @@
           fit();
         };
         refresh();
-        pictureTimer = setInterval(refresh, PICTURE_MS);
+        pictureTimer = setInterval(refresh, paused ? PAUSED_PICTURE_MS : PICTURE_MS);
         renderOverlay();
         // Try live again (e.g. back on the home network): soon, then once a minute.
-        retryTimer = setTimeout(connect, retries++ ? 60000 : 10000);
+        if (!paused) retryTimer = setTimeout(connect, retries++ ? 60000 : 10000);
       }
 
       // ---- Analytics ----
@@ -330,6 +354,7 @@
         clearTimeout(stateTimer);
         clearTimeout(sceneTimer);
         clearTimeout(retryTimer);
+        clearTimeout(limitTimer);
         stopLive();
         stopPictures();
       }

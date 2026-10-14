@@ -19,7 +19,7 @@ const RECENT_EVENTS = 20; // kept for the dashboard widgets
 const WIDGET_SCENE_MS = 300; // scene frames while a widget shows the boxes
 const WIDGET_LEASE_MS = 15000; // keep the widget's scene stream this long after its last poll
 const TRACK_FRAME_MS = 300; // scene frames read while tracking (objects pass quickly)
-const TRAFFIC_SAVE_MS = 5 * 60 * 1000;
+const TRAFFIC_SAVE_MS = 15 * 60 * 1000; // history is also saved when the app stops
 const DETECTED_GAP_MS = 5000; // per category, for the "detected" flow
 const HEALTH_MS = 5 * 60 * 1000;
 const TAMPER_HOLD_MS = 60 * 1000;
@@ -79,6 +79,12 @@ class CameraDevice extends Homey.Device {
     this.instances = this.getStoreValue('event_instances') || [];
     for (const cap of ['alarm_motion', 'axis_motion_today', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
       if (!this.hasCapability(cap)) await this.addCapability(cap).catch(this.error);
+    }
+    // Live video used to default to Medium; Automatic (start Low, go up when there is
+    // room) is much lighter for Homey. Moved over once, a later choice is kept.
+    if (!this.getStoreValue('quality_v2')) {
+      if (this.getSetting('quality') === 'medium') await this.setSettings({ quality: 'auto' }).catch(this.error);
+      await this.setStoreValue('quality_v2', true).catch(this.error);
     }
     // Alarms held by a timer don't survive a restart.
     if (this.getCapabilityValue('alarm_tamper')) await this.setCapabilityValue('alarm_tamper', false).catch(this.error);
@@ -681,6 +687,21 @@ class CameraDevice extends Homey.Device {
     }
   }
 
+  // Every TRACK_SUMMARY_MS while counting: what the scene stream brought (diagnostics).
+  _trackSummary() {
+    if (!this.getSetting('scene_counts')) return;
+    const st = this.trackStats;
+    this.trackStats = null;
+    const traffic = this.scene && this.scene.takeSceneStats ? this.scene.takeSceneStats() : null;
+    const rate = traffic ? `; stream ${traffic.kbps} kbit/s, ${traffic.fps} frames/s, ${traffic.pictures} with object pictures` : '';
+    if (!st) {
+      this.diag(`tracking: no scene frames in the last ${TRACK_SUMMARY_MS / 60000} min${this.scene ? '' : ' (scene stream not running)'}${rate}`);
+      return;
+    }
+    const types = Object.entries(st.types).map(([t, e]) => `${t} ${e.n}x (best ${e.best.toFixed(2)})`).join(', ');
+    this.diag(`tracking: ${st.frames} frames, objects: ${types || 'none'}; counted ${st.counted}${rate}`);
+  }
+
   _saveTraffic() {
     if (this.tracker.dirty) {
       this.tracker.dirty = false;
@@ -763,6 +784,11 @@ class CameraDevice extends Homey.Device {
         if (!this.scene || this.scene.lastFrameAt) return;
         this.diag('no scene description received in 30 s; the camera may need AXIS Object Analytics or a newer AXIS OS');
       }, 30000);
+      this.homey.clearTimeout(this.sceneRateTimer);
+      this.sceneRateTimer = this.homey.setTimeout(() => {
+        const t = this.scene && this.scene.takeSceneStats();
+        if (t) this.diag(`scene stream: ${t.kbps} kbit/s, ${t.fps} frames/s, ${t.pictures} with object pictures (first 2 min)`);
+      }, 120000);
     });
     if (this.getSetting('scene_counts')) this.scene.frameIntervalMs = TRACK_FRAME_MS;
     this.scene.on('frame', (frame) => this._onSceneFrame(frame));
@@ -771,6 +797,7 @@ class CameraDevice extends Homey.Device {
 
   _stopScene() {
     this.homey.clearTimeout(this.sceneCheckTimer);
+    this.homey.clearTimeout(this.sceneRateTimer);
     this.homey.clearTimeout(this.sceneLeaseTimer);
     if (this.scene) this.scene.stop();
     this.scene = null;
@@ -956,15 +983,23 @@ class CameraDevice extends Homey.Device {
     await this.setCameraVideo('live', this.homey.__('device.live'), video);
   }
 
+  // How long one live view may stay open (setting "Close live view after"); 0 = no limit.
+  liveLimitMs() {
+    const value = this.getSetting('live_limit');
+    const minutes = Number(value === null || value === undefined ? 15 : value);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes * 60000 : 0;
+  }
+
   async _onOffer(offerSdp) {
     this.diag(`viewer offer (${this.viewers.size} already watching)`);
     if (this.viewers.size >= MAX_VIEWERS) this.viewers.values().next().value.close();
-    const mode = this.getSetting('quality') || 'medium';
+    const mode = this.getSetting('quality') || 'auto';
     try {
       const { viewer, answerSdp } = await this.app.getRelay().openViewer({
         camera: this.liveCamera(),
         mode,
-        startProfile: 'medium',
+        startProfile: 'low',
+        maxMs: this.liveLimitMs(),
         viewerOfferSdp: offerSdp,
         onClose: (v) => this.viewers.delete(v.id),
       });

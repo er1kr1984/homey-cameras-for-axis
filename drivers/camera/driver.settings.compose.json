@@ -54,9 +54,9 @@
         "label": {
           "en": "Live video quality"
         },
-        "value": "medium",
+        "value": "auto",
         "hint": {
-          "en": "Low (up to 640 pixels wide) is lightest for Homey. Automatic starts at Medium and steps down when Homey gets busy."
+          "en": "Live video costs Homey a lot of work. Automatic starts at Low (quick to open) and goes up to Medium when Homey has room, and back down when it gets busy. Low (up to 640 pixels wide) is lightest. Medium and High always stay at that size, unless Homey is about to stop the app."
         },
         "values": [
           {
@@ -83,6 +83,24 @@
               "en": "Automatic"
             }
           }
+        ]
+      },
+      {
+        "id": "live_limit",
+        "type": "dropdown",
+        "label": {
+          "en": "Close live view after"
+        },
+        "value": "15",
+        "hint": {
+          "en": "A live view left open, for example on a wall tablet, keeps Homey busy all the time. After this time the video stops; tap it to watch again. For an always-on screen, the Overview or Visitors widget costs almost nothing."
+        },
+        "values": [
+          { "id": "5", "label": { "en": "5 minutes" } },
+          { "id": "15", "label": { "en": "15 minutes" } },
+          { "id": "30", "label": { "en": "30 minutes" } },
+          { "id": "60", "label": { "en": "1 hour" } },
+          { "id": "0", "label": { "en": "Never" } }
         ]
       },
       {

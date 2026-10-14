@@ -59,6 +59,7 @@
     "missing": "This camera is no longer in Homey. Pick another one in the widget settings.",
     "pickCamera": "Pick a camera in the widget settings.",
     "connecting": "Connecting…",
+    "tapForLive": "Tap for live video",
     "pictures": "PICTURE",
     "people": "people",
     "vehicles": "vehicles",

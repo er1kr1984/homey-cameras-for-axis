@@ -31,3 +31,27 @@ test('a Homey CPU warning steps every stream down, then closes them near the lim
   assert.ok(a.closed && b.closed);
   relay.closeAll();
 });
+
+test('an Auto stream goes up a level when Homey has room, not right after a warning', () => {
+  const relay = new LiveRelay({ openUpstream: () => null, log: () => {} });
+  const a = { ...fakeStream('low'), auto: true, viewers: new Set([1]) };
+  relay.lowUntil = Date.now() + 60000;
+  relay._stepUp([a], 5, Date.now());
+  assert.strictEqual(a.profile, 'low', 'held low after a warning');
+  relay.lowUntil = 0;
+  relay._stepUp([a], 5, Date.now());
+  assert.strictEqual(a.profile, 'medium');
+  relay.lastSwitch = 0;
+  relay._stepUp([a], 5, Date.now());
+  assert.strictEqual(a.profile, 'medium', 'never above medium by itself');
+  relay.closeAll();
+});
+
+test('a live view closes itself after the time limit', async () => {
+  let closed = false;
+  const v = new LiveRelay.ViewerSession({
+    stream: { removeViewer() {} }, log: () => {}, maxMs: 50, onClose: () => { closed = true; },
+  });
+  await new Promise((r) => setTimeout(r, 120));
+  assert.ok(closed && v.closed);
+});
