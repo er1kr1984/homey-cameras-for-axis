@@ -91,8 +91,6 @@ server and no extra software are needed. (If you use AXIS Camera Station Pro, se
 
 ## What your camera needs
 
-### Feature by feature
-
 | Feature | The device needs | If it doesn't have it |
 |---|---|---|
 | Picture, live video | A camera or door station (any AXIS OS) | Recorders, speakers: no picture or live view |
@@ -122,28 +120,6 @@ server and no extra software are needed. (If you use AXIS Camera Station Pro, se
 | PoE power per port | An Axis recorder with PoE ports | — |
 | Door station flows | An Axis door station / intercom | — |
 | PTZ presets | PTZ, or digital PTZ / view areas | — |
-
-### What the tested devices do
-
-| | P3267-LVE Mic | A8207-VE door station | M1065-L | M1065-LW | M2026-LE Mk II | M3104-LVE | S3008 recorder |
-|---|---|---|---|---|---|---|---|
-| AXIS OS | 12.6 | 11.11 | 9.80 | 9.80 | 9.80 | 9.80 | 12.10 |
-| Picture and live view | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
-| Motion and motion insights | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – |
-| Labelled boxes, people/vehicle counting | ✓ (Object Analytics) | – | – | – | – | – | – |
-| Plain moving-object boxes | (has labelled) | motion tracker metadata¹ | – | – | – | – | – |
-| Object Analytics scenarios | ✓ | – | – | – | – | – | – |
-| Sound | ✓ level, detection, classification | ✓ detection | – | ✓ detection | – | – | – |
-| Body heat (PIR) | – | ✓ | ✓ | ✓ | – | – | – |
-| IR light | ✓ | – | ✓ | ✓ | ✓ | ✓ | – |
-| Privacy mode | ✓ | ✓ | ✓ (tried) | ✓ | ✓ | ✓ | – |
-| Temperature | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Power (W) | ✓ | – | – | – | – | – | – |
-| PoE per port | – | – | – | – | – | – | ✓ |
-| Door station flows | – | ✓ | – | – | – | – | – |
-
-¹ The door station offers the motion tracker's metadata; plain boxes in the widget are not yet
-confirmed on a live device.
 
 ## It adapts to each device
 
