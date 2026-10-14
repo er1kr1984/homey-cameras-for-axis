@@ -271,6 +271,21 @@ class FakeCamera {
           this.lastOverlay = { method, params };
           return this._json(res, method === 'addText' ? { camera: 1, identity: 7 } : {});
         }
+        case '/axis-cgi/power-settings.cgi':
+          this.lastPower = json().method;
+          return this._json(res, {
+            usage: { currentPower: 6.2, averagePower: 5.9, maxPower: -1 }, psePoeClass: 4, lldpPoeClass: 4, powerRequested: 12.95,
+          });
+        case '/axis-cgi/nvr/poe/getportstatuses.cgi':
+          res.writeHead(200, { 'Content-Type': 'text/xml' });
+          return res.end('<?xml version="1.0" encoding="utf-8"?><root><GetPortStatusesSuccess>'
+            + '<PortStatus><Port>1</Port><StatusCode>1</StatusCode><Description>Connected - PoE</Description><Extra>0x01: 802.3af-compliant device detected</Extra>'
+            + '<ClassPowerLimit>7.0</ClassPowerLimit><PoeClass>2</PoeClass><AllocatedPower>7.0</AllocatedPower><PowerConsumption>3.4</PowerConsumption><PseClassLimit>4</PseClassLimit><RequestedPower>6.1</RequestedPower></PortStatus>'
+            + '<PortStatus><Port>2</Port><StatusCode>0</StatusCode><Description>Disconnected</Description><PowerConsumption>0.0</PowerConsumption></PortStatus>'
+            + '</GetPortStatusesSuccess></root>');
+        case '/axis-cgi/nvr/poe/gettotalpowerlimit.cgi':
+          res.writeHead(200, { 'Content-Type': 'text/xml' });
+          return res.end('<?xml version="1.0"?><root><GetTotalPowerLimitSuccess><Limit>65</Limit></GetTotalPowerLimitSuccess></root>');
         case '/axis-cgi/temperaturecontrol.cgi':
           res.writeHead(200, { 'Content-Type': 'text/plain' });
           return res.end('Sensor.S0.Name=Main\nSensor.S0.Celsius=43.50\nSensor.S0.Fahrenheit=110.30\nSensor.S1.Name=CPU\nSensor.S1.Celsius=50.44\n'

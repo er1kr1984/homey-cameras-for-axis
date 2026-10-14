@@ -17,7 +17,8 @@
   },
   "device": {
     "snapshot": "Picture",
-    "live": "Live"
+    "live": "Live",
+    "poePort": "PoE port {{n}}"
   },
   "flow": {
     "anyScenario": "Any scenario"

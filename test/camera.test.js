@@ -240,3 +240,15 @@ test('vapix: privacy mode on cameras without privacymask.cgi uses the mask param
     c.close();
   }
 });
+
+test('vapix: power use (Power settings API) and recorder PoE ports (NVR PoE API)', async () => {
+  const c = client();
+  assert.deepStrictEqual(await c.powerStatus(), {
+    current: 6.2, average: 5.9, max: null, poeClass: 4, requested: 12.95,
+  });
+  assert.strictEqual(cam.lastPower, 'getPowerStatus');
+  const ports = await c.poePorts();
+  assert.deepStrictEqual(ports.map((p) => [p.port, p.connected, p.watts, p.status]), [[1, true, 3.4, 'Connected - PoE'], [2, false, 0, 'Disconnected']]);
+  assert.strictEqual(await c.poeLimit(), 65);
+  c.close();
+});

@@ -3932,6 +3932,21 @@
         "en": "No body heat"
       }
     },
+    "axis_poe": {
+      "type": "number",
+      "title": {
+        "en": "PoE power to devices"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "units": {
+        "en": "W"
+      },
+      "decimals": 1,
+      "icon": "/assets/icon.svg"
+    },
     "axis_privacy": {
       "type": "boolean",
       "title": {

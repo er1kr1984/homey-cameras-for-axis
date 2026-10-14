@@ -13,7 +13,7 @@ const { Activity } = require('../../lib/activity');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
-const FEATURES_VERSION = 4; // bump to re-read after an app update that uses more
+const FEATURES_VERSION = 5; // bump to re-read after an app update that uses more
 const SOUND_LEVEL_MS = 10 * 1000; // sound level reading updated at most this often
 const AUDIO_CLASS_GAP_MS = 10 * 1000; // per sound type
 const SCENE_CHANGE_SAMPLES = 2; // a new people/vehicle count must hold this many frames
@@ -34,6 +34,7 @@ const TRACK_SUMMARY_MS = 15 * 60 * 1000;
 const APPS_CHECK_MS = 30 * 60 * 1000; // installed camera apps (a new one can add events)
 const TRACK_TICK_MS = 5000; // objects that stopped being reported are let go
 const FLOW_USE_CHECK_MS = 60 * 1000; // how long "does a flow use this card" is remembered
+const POWER_MS = 60 * 1000; // power use and PoE ports
 const STATUS_MS = 10 * 60 * 1000; // temperature, memory card, privacy mode, counts
 const CALL_ACTIVE = /calling|ringing|active|connected|conversation/i; // call states while a call is on
 const SNAPSHOT_REUSE_MS = 3000; // a scene picture this recent is reused for the next object
@@ -100,6 +101,7 @@ class CameraDevice extends Homey.Device {
     this.healthTimer = this.homey.setInterval(() => this._healthCheck(), HEALTH_MS);
     this.appsTimer = this.homey.setInterval(() => this._checkApps().catch(this.error), APPS_CHECK_MS);
     this.statusTimer = this.homey.setInterval(() => this._pollStatus().catch(this.error), STATUS_MS);
+    this.powerTimer = this.homey.setInterval(() => this._pollPower().catch(this.error), POWER_MS);
     this._listenPrivacy();
   }
 
@@ -148,6 +150,7 @@ class CameraDevice extends Homey.Device {
     this._startScene();
     this._checkApps().catch(this.error);
     this._pollStatus().catch(this.error);
+    this._pollPower().catch(this.error);
   }
 
   // The apps installed on the camera (AXIS Motion Guard, Fence Guard, Object Analytics...).
@@ -229,6 +232,14 @@ class CameraDevice extends Homey.Device {
     if (f.privacyMask) wanted.set('axis_privacy', null);
     if (f.temperature) wanted.set('measure_temperature', null);
     if (f.disks && this.hasMemoryCard) wanted.set('axis_storage', null);
+    // Power: what a newer camera uses itself (Homey Energy counts this), and on a recorder
+    // the PoE power per port (its own capability, so a camera powered by the recorder
+    // isn't counted twice in Energy).
+    if (f.power && this.powerReadable) wanted.set('measure_power', null);
+    if (f.recorderPoe && this.poePortNumbers && this.poePortNumbers.length) {
+      wanted.set('axis_poe', null);
+      for (const n of this.poePortNumbers) wanted.set(`axis_poe.port${n}`, { title: { en: this.homey.__('device.poePort', { n }) } });
+    }
     for (const sc of events.analyticsScenarios(this.instances)) {
       if (sc.counting) wanted.set(`axis_count.${sc.id}`, { title: { en: sc.name } });
       else if (sc.occupancy) wanted.set(`axis_occupancy.${sc.id}`, { title: { en: sc.name } });
@@ -241,7 +252,7 @@ class CameraDevice extends Homey.Device {
       const seen = new Set(Object.values(this.tracker.history).flatMap((b) => Object.keys(b)));
       for (const c of CATEGORIES) if (seen.has(c)) wanted.set(`axis_today.${c}`, { title: { en: this.homey.__(`objects.today.${c}`) } });
     }
-    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles|axis_pir|axis_call|axis_privacy|measure_temperature|axis_storage)$|^axis_count\.|^axis_occupancy\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
+    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles|axis_pir|axis_call|axis_privacy|measure_temperature|axis_storage|measure_power|axis_poe)$|^axis_poe\.|^axis_count\.|^axis_occupancy\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
     for (const cap of this.getCapabilities()) {
       if (dynamic.test(cap) && !wanted.has(cap)) await this.removeCapability(cap).catch(this.error);
     }
@@ -1433,6 +1444,48 @@ class CameraDevice extends Homey.Device {
     }
   }
 
+  // Every POWER_MS: the camera's own power use (Power settings API) and, on a recorder,
+  // the power on each PoE port (NVR PoE API).
+  async _pollPower() {
+    const f = this.features || {};
+    if (f.power) {
+      const p = await this.client.powerStatus().catch((err) => {
+        if (!this.powerLogged) this.diag(`could not read power use: ${err.code || ''} ${err.message}`);
+        this.powerLogged = true;
+        return null;
+      });
+      const readable = Boolean(p && p.current !== null);
+      if (readable !== Boolean(this.powerReadable)) {
+        this.powerReadable = readable;
+        if (p) this.diag(`power: ${readable ? `${p.current} W now, PoE class ${p.poeClass === null ? '?' : p.poeClass}` : 'this camera cannot measure its power use'}`);
+        await this._syncCapabilities();
+      }
+      if (readable && this.hasCapability('measure_power')) await this.setCapabilityValue('measure_power', Math.round(p.current * 10) / 10).catch(this.error);
+    }
+    if (f.recorderPoe) {
+      const ports = await this.client.poePorts().catch((err) => {
+        if (!this.poeLogged) this.diag(`could not read PoE ports: ${err.code || ''} ${err.message}`);
+        this.poeLogged = true;
+        return null;
+      });
+      if (!ports) return;
+      const numbers = ports.map((x) => x.port).sort((a, b) => a - b);
+      if (numbers.join(',') !== (this.poePortNumbers || []).join(',')) {
+        this.poePortNumbers = numbers;
+        this.diag(`PoE ports: ${ports.map((x) => `${x.port}: ${x.status || '?'}${x.watts !== null ? ` ${x.watts} W` : ''}`).join('; ')}`);
+        await this._syncCapabilities();
+      }
+      let total = 0;
+      for (const x of ports) {
+        const w = x.watts || 0;
+        total += w;
+        const cap = `axis_poe.port${x.port}`;
+        if (this.hasCapability(cap)) await this.setCapabilityValue(cap, Math.round(w * 10) / 10).catch(this.error);
+      }
+      if (this.hasCapability('axis_poe')) await this.setCapabilityValue('axis_poe', Math.round(total * 10) / 10).catch(this.error);
+    }
+  }
+
   // getAccumulatedCounts answers { total, human, car, ... }; events use totalHuman etc.
   _countsAsEvent(data) {
     const out = { total: data.total };
@@ -1529,6 +1582,7 @@ class CameraDevice extends Homey.Device {
   _stop() {
     this.homey.clearTimeout(this.startTimer);
     this.homey.clearInterval(this.statusTimer);
+    this.homey.clearInterval(this.powerTimer);
     this._saveTraffic();
     this.homey.clearInterval(this.trafficTimer);
     this.homey.clearInterval(this.todayTimer);
