@@ -32,6 +32,11 @@ class AxisApp extends Homey.App {
     this.homey.setInterval(() => this._persistLogs(false), LOG_PERSIST_MS);
     if (!this.homey.settings.get('diagnostics')) this.homey.settings.unset('diag_previous_logs');
     this.relay = null;
+    // Homey stops an app after a few CPU warnings; live video is what costs the most.
+    this.homey.on('cpuwarn', ({ count, limit } = {}) => {
+      this.diagError(`Homey CPU warning ${count}/${limit}`);
+      if (this.relay) this.relay.onCpuWarning(count, limit);
+    });
     this._registerWidgets();
     this.diag('Axis cameras app started');
     if (tuningFailures.length) this.diagError('Running without some speed-ups:', tuningFailures.join('; '));

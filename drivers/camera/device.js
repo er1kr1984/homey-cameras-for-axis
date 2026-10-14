@@ -31,6 +31,7 @@ const EVENT_LOG_GAP_MS = 60 * 1000; // the same event is logged at most this oft
 const TRACK_SUMMARY_MS = 15 * 60 * 1000;
 const APPS_CHECK_MS = 30 * 60 * 1000; // installed camera apps (a new one can add events)
 const TRACK_TICK_MS = 5000; // objects that stopped being reported are let go
+const FLOW_USE_CHECK_MS = 60 * 1000; // how long "does a flow use this card" is remembered
 const SNAPSHOT_REUSE_MS = 3000; // a scene picture this recent is reused for the next object
 const SNAPSHOT_SIZES = { small: 640, medium: 1280, full: Infinity };
 
@@ -319,7 +320,7 @@ class CameraDevice extends Homey.Device {
       this.homey.clearTimeout(this.tamperTimer);
       this.tamperTimer = this.homey.setTimeout(() => this.setCapabilityValue('alarm_tamper', false).catch(this.error), TAMPER_HOLD_MS);
       this._remember('tampering', this.homey.__('widget.tampering'));
-      this.driver.triggers.tampering.trigger(this, { image: await this._eventImage() }).catch(this.error);
+      this.driver.triggers.tampering.trigger(this, { image: await this._flowImage(this.driver.triggers.tampering) }).catch(this.error);
     }
     if (kind === 'daynight' && state !== null) {
       const night = !state;
@@ -348,7 +349,7 @@ class CameraDevice extends Homey.Device {
         this.audioClassAt[sound] = Date.now();
         this._remember('sound', this.homey.__(`sounds.${sound}`) || sound);
         this.driver.triggers.sound.trigger(this, {
-          sound: this.homey.__(`sounds.${sound}`) || sound, image: await this._eventImage(),
+          sound: this.homey.__(`sounds.${sound}`) || sound, image: await this._flowImage(this.driver.triggers.sound),
         }, { sound }).catch(this.error);
       }
     }
@@ -386,7 +387,7 @@ class CameraDevice extends Homey.Device {
     this.driver.triggers.analytics.trigger(this, {
       scenario: name,
       object: String(object),
-      image: await this._eventImage(),
+      image: await this._flowImage(this.driver.triggers.analytics),
     }, { topic }).catch(this.error);
   }
 
@@ -852,7 +853,7 @@ class CameraDevice extends Homey.Device {
         this.activity.start();
         this.setCapabilityValue('axis_motion_today', this.activity.today()).catch(this.error);
         this._remember('motion', this.homey.__('widget.motionStarted'));
-        this._eventImage().then((image) => this.driver.triggers.motionStarted.trigger(this, { image })).catch(this.error);
+        this._flowImage(this.driver.triggers.motionStarted).then((image) => this.driver.triggers.motionStarted.trigger(this, { image })).catch(this.error);
       }
     } else if (this.getCapabilityValue('alarm_motion') === true && !this.motionOffTimer) {
       // Keep the alarm on a little longer so short gaps don't flap it.
@@ -923,6 +924,20 @@ class CameraDevice extends Homey.Device {
   // A picture of this moment for a flow token (images are reused round-robin).
   async _eventImage() {
     return this._imageFromJpeg(await this._snapshotJpeg());
+  }
+
+  // The picture for a trigger's image token, taken only when a flow uses that card for
+  // this camera (motion starts often; a full-size picture each time costs CPU).
+  async _flowImage(card) {
+    this.flowUse = this.flowUse || {};
+    const known = this.flowUse[card.id];
+    let used = known && Date.now() - known.at < FLOW_USE_CHECK_MS ? known.used : null;
+    if (used === null) {
+      used = await card.getArgumentValues(this).then((args) => args.length > 0).catch(() => true);
+      if (!known) this.diag(`flows using "${card.id}": ${used ? 'yes' : 'none'}`);
+      this.flowUse[card.id] = { at: Date.now(), used };
+    }
+    return used ? this._eventImage() : this._imageFromJpeg(null);
   }
 
   async snapshotToken() {

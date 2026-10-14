@@ -307,6 +307,8 @@ class FakeCamera {
       const sdp = ['v=0', 'o=- 1 1 IN IP4 127.0.0.1', 's=Metadata', 't=0 0', 'a=control:*',
         'm=application 0 RTP/AVP 98', 'a=rtpmap:98 vnd.onvif.metadata/90000', 'a=control:stream=0'].join('\r\n');
       reply('200 OK', { 'Content-Base': `${uri}/`, 'Content-Type': 'application/sdp' }, `${sdp}\r\n`);
+    } else if (method === 'DESCRIBE' && this.refuseBitrateCap && this.refuseBitrateCap.test(uri)) {
+      reply('400 Bad Request');
     } else if (method === 'DESCRIBE') {
       this.lastDescribe = uri;
       const sdp = [

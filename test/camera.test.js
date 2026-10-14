@@ -109,6 +109,7 @@ test('rtsp: video arrives, parameter sets are added before keyframes, keyframe r
   await up.start();
   assert.match(cam.lastDescribe, /resolution=640x360/);
   assert.match(cam.lastDescribe, /videocodec=h264/);
+  assert.match(cam.lastDescribe, /videobitratemode=mbr&videomaxbitrate=500/);
   assert.match(cam.lastSetup.transport, /RTP\/AVP\/TCP;unicast;interleaved=0-1/);
   await new Promise((r) => setTimeout(r, 1300)); // > one keyframe interval
   const kinds = packets.map((p) => {
@@ -151,4 +152,18 @@ test('events over RTSP (AXIS OS 9): metadata documents across packets become eve
   assert.strictEqual(events.stateOf(got[1]), true);
   assert.deepStrictEqual(got[1].source, { Source: '0' });
   stream.stop();
+});
+
+test('rtsp: a camera that refuses the bitrate cap streams without it', async () => {
+  cam.refuseBitrateCap = /videomaxbitrate/;
+  const camera = {
+    id: 'OLDCAM', name: 'cam', host: '127.0.0.1', rtspPort: cam.rtspPort, username: 'homey', password: 'secret', resolutions: ['640x360'],
+  };
+  const up = new RtspUpstream({
+    camera, profile: 'low', log: () => {}, onPacket: () => {}, onDead: () => assert.fail('not dead'),
+  });
+  await up.start();
+  assert.doesNotMatch(cam.lastDescribe, /videomaxbitrate/);
+  up.close();
+  cam.refuseBitrateCap = null;
 });
