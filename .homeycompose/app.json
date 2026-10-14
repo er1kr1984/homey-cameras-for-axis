@@ -49,6 +49,10 @@
     "getPreviousLogs": {
       "method": "GET",
       "path": "/previous-logs"
+    },
+    "getCameraFeatures": {
+      "method": "GET",
+      "path": "/features"
     }
   },
   "images": {

@@ -197,6 +197,29 @@ class AxisApp extends Homey.App {
     return { diagnostics: Boolean(on) };
   }
 
+  // Read-only: asks every camera what it supports (diagnostics must be on).
+  async diagnosticsFeatures() {
+    if (!this.homey.settings.get('diagnostics')) throw new Error('Switch on Diagnostics in the app settings first');
+    const { classify, bare } = require('./lib/events-map');
+    const devices = this.homey.drivers.getDriver('camera').getDevices();
+    return Promise.all(devices.map(async (d) => {
+      const [apis, props, apps] = await Promise.all([
+        d.client.apiList().catch((e) => ({ error: e.message })),
+        d.client.params('Properties').catch((e) => ({ error: e.message })),
+        d.client.applications().catch(() => []),
+      ]);
+      return {
+        name: d.getName(),
+        model: d.getSetting('model'),
+        firmware: d.getSetting('firmware'),
+        apis,
+        properties: props,
+        apps: apps.map((a) => `${a.niceName} ${a.version} (${a.status})`),
+        events: (d.instances || []).map((i) => ({ topic: bare(i.topic), name: i.name, kind: classify(i.topic) || null })),
+      };
+    }));
+  }
+
   diagnosticsLogs(previous) {
     if (!this.homey.settings.get('diagnostics')) throw new Error('Switch on Diagnostics in the app settings first');
     return previous ? (this.homey.settings.get('diag_previous_logs') || []) : this.recentLogs;

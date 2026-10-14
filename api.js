@@ -15,4 +15,8 @@ module.exports = {
   async getPreviousLogs({ homey }) {
     return homey.app.diagnosticsLogs(true);
   },
+  // What each camera offers (VAPIX APIs, properties, event types and how the app uses them).
+  async getCameraFeatures({ homey }) {
+    return homey.app.diagnosticsFeatures();
+  },
 };
