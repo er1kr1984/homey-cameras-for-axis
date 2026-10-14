@@ -16,13 +16,15 @@
             "en": "Picture"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=alarm_motion"
     },
     {
       "id": "motion_stopped",
       "title": {
         "en": "Motion stopped"
-      }
+      },
+      "$filter": "capabilities=alarm_motion"
     },
     {
       "id": "analytics_triggered",
@@ -113,7 +115,8 @@
             "en": "Picture"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=alarm_tamper"
     },
     {
       "id": "day_night_changed",
@@ -129,7 +132,8 @@
           },
           "example": true
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_night"
     },
     {
       "id": "input_changed",
@@ -467,7 +471,8 @@
           },
           "example": true
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_watched"
     },
     {
       "id": "schedule_changed",
@@ -559,7 +564,8 @@
           },
           "example": false
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "object_detected",
@@ -804,7 +810,8 @@
           },
           "example": 12
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "object_passed",
@@ -1099,7 +1106,8 @@
           },
           "example": 12
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "object_lingering",
@@ -1278,7 +1286,8 @@
           },
           "example": 12
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "unusual_activity",
@@ -1363,7 +1372,8 @@
             "en": "03:00"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_motion_today"
     },
     {
       "id": "daily_summary",
@@ -1451,7 +1461,8 @@
             "en": "17:00"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_motion_today"
     },
     {
       "id": "pir_changed",
@@ -1501,7 +1512,8 @@
             "en": "Sensing someone"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_pir"
     },
     {
       "id": "ip_blocked",
@@ -1566,7 +1578,8 @@
             "en": "Above the upper limit"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=measure_noise"
     },
     {
       "id": "doorbell",
@@ -1584,7 +1597,8 @@
             "en": "Picture"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "call_state",
@@ -1612,7 +1626,8 @@
             "en": "Call in progress"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "pin_entered",
@@ -1633,7 +1648,8 @@
             "en": "1234"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "tag_shown",
@@ -1664,7 +1680,8 @@
             "en": "MIFARE"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "access_decided",
@@ -1724,7 +1741,8 @@
             "en": "Front door card"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "presence",
@@ -1734,7 +1752,8 @@
       "hint": {
         "en": "The door station noticed someone in front of it (for example the screen woke up)."
       },
-      "tokens": []
+      "tokens": [],
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "face_seen",
@@ -1752,7 +1771,8 @@
             "en": "Close-up"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "plate_seen",
@@ -1790,7 +1810,8 @@
             "en": "Close-up"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "occupancy_changed",
@@ -1898,7 +1919,8 @@
       "id": "is_night",
       "title": {
         "en": "Is !{{|not}} in night mode"
-      }
+      },
+      "$filter": "capabilities=axis_night"
     },
     {
       "id": "input_active",
@@ -1927,7 +1949,8 @@
       "id": "live_watched",
       "title": {
         "en": "Live view is !{{|not}} being watched"
-      }
+      },
+      "$filter": "capabilities=axis_watched"
     },
     {
       "id": "has_problem",
@@ -2010,7 +2033,8 @@
             }
           ]
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "in_view_more",
@@ -2100,25 +2124,29 @@
             }
           ]
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_people"
     },
     {
       "id": "pir_active",
       "title": {
         "en": "Body heat sensor !{{senses|doesn't sense}} someone"
-      }
+      },
+      "$filter": "capabilities=axis_pir"
     },
     {
       "id": "privacy_on",
       "title": {
         "en": "Privacy mode is !{{on|off}}"
-      }
+      },
+      "$filter": "capabilities=axis_privacy"
     },
     {
       "id": "call_active",
       "title": {
         "en": "A call is !{{|not}} in progress"
-      }
+      },
+      "$filter": "capabilities=axis_call"
     },
     {
       "id": "occupancy_more",
@@ -2241,7 +2269,8 @@
             }
           ]
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_ir"
     },
     {
       "id": "virtual_input",
@@ -2458,7 +2487,8 @@
             "en": "17:00"
           }
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_motion_today"
     },
     {
       "id": "privacy_set",
@@ -2493,7 +2523,8 @@
             }
           ]
         }
-      ]
+      ],
+      "$filter": "capabilities=axis_privacy"
     },
     {
       "id": "play_clip",

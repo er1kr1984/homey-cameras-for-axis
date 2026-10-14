@@ -83,7 +83,9 @@ class CameraDevice extends Homey.Device {
     this.trackSummaryTimer = this.homey.setInterval(() => this._trackSummary(), TRACK_SUMMARY_MS);
     this.features = this.getStoreValue('features') || null;
     this.instances = this.getStoreValue('event_instances') || [];
-    for (const cap of ['alarm_motion', 'axis_motion_today', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
+    // Every device reports its health; everything else is added once the device has said
+    // what it can do (_syncCapabilities).
+    for (const cap of ['alarm_problem', 'axis_problem']) {
       if (!this.hasCapability(cap)) await this.addCapability(cap).catch(this.error);
     }
     // Live video used to default to Medium; Automatic (start Low, go up when there is
@@ -95,8 +97,9 @@ class CameraDevice extends Homey.Device {
     // Alarms held by a timer don't survive a restart.
     if (this.getCapabilityValue('alarm_tamper')) await this.setCapabilityValue('alarm_tamper', false).catch(this.error);
     this._makeClient();
-    await this._attachImage().catch((err) => this.error('image:', err.message));
-    await this._attachVideo().catch((err) => this.error('video:', err.message));
+    // Picture and live view only for devices with their own image (not e.g. a recorder).
+    // Not known yet for a new device: then after its features are read.
+    if (this.features) await this._attachMedia();
     this.startTimer = this.homey.setTimeout(() => this._start(), this.driver.startDelay());
     this.healthTimer = this.homey.setInterval(() => this._healthCheck(), HEALTH_MS);
     this.appsTimer = this.homey.setInterval(() => this._checkApps().catch(this.error), APPS_CHECK_MS);
@@ -145,6 +148,13 @@ class CameraDevice extends Homey.Device {
       await this.setAvailable();
     } catch (err) {
       this._connectionProblem(err);
+    }
+    // What the device shows always follows what it can do (also after an app update).
+    await this._syncCapabilities().catch(this.error);
+    await this._attachMedia();
+    if (this.hasVideo() === false && this.getClass() === 'camera') {
+      this.diag('no image of its own (e.g. a recorder): shown as a plain device, without picture or live view');
+      await this.setClass('other').catch(this.error);
     }
     this._startEvents();
     this._startScene();
@@ -220,12 +230,23 @@ class CameraDevice extends Homey.Device {
   // live stream watched, one alarm per analytics scenario, one counter per counting
   // scenario, people/vehicles in view. Added and removed to match the camera.
   async _syncCapabilities() {
+    // Without the device's event list (it couldn't be read) nothing is removed.
+    if (!this.instances.length) return;
     const has = (re) => this.instances.some((i) => re.test(events.bare(i.topic)));
+    const kinds = new Set(this.instances.map((i) => events.classify(i.topic)).filter(Boolean));
+    const video = this.hasVideo() !== false;
     const wanted = new Map(); // capability id -> options or null
+    // Basics, only with evidence from the device.
+    if (kinds.has('motion') || kinds.has('analytics') || kinds.has('pir')) {
+      wanted.set('alarm_motion', null);
+      wanted.set('axis_motion_today', null);
+    }
+    if (kinds.has('tampering')) wanted.set('alarm_tamper', null);
+    if (kinds.has('daynight')) wanted.set('axis_night', null);
     if (has(/^SoundPressureLevel\/Metrics$/)) wanted.set('measure_noise', null);
-    if (has(/^Storage\/Recording$/)) wanted.set('axis_recording', null);
+    if (video && has(/^Storage\/Recording$/)) wanted.set('axis_recording', null);
     if (has(/^Device\/Light\/Status$|^LightControl\/LightStatusChanged\/Status$/)) wanted.set('axis_ir', null);
-    if (has(/^VideoSource\/LiveStreamAccessed$/)) wanted.set('axis_watched', null);
+    if (video && has(/^VideoSource\/LiveStreamAccessed$/)) wanted.set('axis_watched', null);
     if (has(/^Device\/Sensor\/PIR$/)) wanted.set('axis_pir', null);
     if (has(/^Call\/State$|^Device\/Intercom\/CallState$/)) wanted.set('axis_call', null);
     const f = this.features || {};
@@ -252,7 +273,7 @@ class CameraDevice extends Homey.Device {
       const seen = new Set(Object.values(this.tracker.history).flatMap((b) => Object.keys(b)));
       for (const c of CATEGORIES) if (seen.has(c)) wanted.set(`axis_today.${c}`, { title: { en: this.homey.__(`objects.today.${c}`) } });
     }
-    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles|axis_pir|axis_call|axis_privacy|measure_temperature|axis_storage|measure_power|axis_poe)$|^axis_poe\.|^axis_count\.|^axis_occupancy\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
+    const dynamic = /^(alarm_motion|axis_motion_today|alarm_tamper|axis_night|measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles|axis_pir|axis_call|axis_privacy|measure_temperature|axis_storage|measure_power|axis_poe)$|^axis_poe\.|^axis_count\.|^axis_occupancy\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
     for (const cap of this.getCapabilities()) {
       if (dynamic.test(cap) && !wanted.has(cap)) await this.removeCapability(cap).catch(this.error);
     }
@@ -539,11 +560,11 @@ class CameraDevice extends Homey.Device {
       recording: cap('axis_recording'),
       people: cap('axis_people'),
       vehicles: cap('axis_vehicles'),
-      motionToday: this.activity.today(),
-      scenarios: scenarios.filter((sc) => !sc.counting && sc.stateful)
+      motionToday: this.hasCapability('axis_motion_today') ? this.activity.today() : null,
+      scenarios: scenarios.filter((sc) => !sc.counting && !sc.occupancy && sc.stateful)
         .map((sc) => ({ name: sc.name, active: cap(`alarm_generic.${sc.id}`) === true })),
-      counters: scenarios.filter((sc) => sc.counting)
-        .map((sc) => ({ name: sc.name, total: cap(`axis_count.${sc.id}`) })),
+      counters: scenarios.filter((sc) => sc.counting || sc.occupancy)
+        .map((sc) => ({ name: sc.name, total: cap(`${sc.occupancy ? 'axis_occupancy' : 'axis_count'}.${sc.id}`) })),
       recent: this.recent.slice(0, 8),
     };
   }
@@ -1121,6 +1142,21 @@ class CameraDevice extends Homey.Device {
       .sort((a, b) => b.w - a.w);
     const fit = all.find((r) => r.w <= max);
     return fit ? fit.text : undefined;
+  }
+
+  // Whether the device has an image of its own (cameras, door stations; not recorders or
+  // speakers). Unknown before its features are read.
+  hasVideo() {
+    const f = this.features;
+    if (!f) return null;
+    return Boolean((f.resolutions && f.resolutions.length) || (f.formats && f.formats.includes('jpeg')));
+  }
+
+  async _attachMedia() {
+    if (this.mediaAttached || this.hasVideo() === false) return;
+    this.mediaAttached = true;
+    await this._attachImage().catch((err) => this.error('image:', err.message));
+    await this._attachVideo().catch((err) => this.error('video:', err.message));
   }
 
   async _attachImage() {

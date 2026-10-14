@@ -74,7 +74,9 @@ class AxisApp extends Homey.App {
   _registerWidgets() {
     const cameras = async (query) => {
       const q = String(query || '').toLowerCase();
+      // Only devices with a picture of their own (not a recorder).
       return this._cameras()
+        .filter((d) => d.hasVideo() !== false)
         .map((d) => ({ id: d.getId(), name: d.getName(), description: d.getSetting('model') || '' }))
         .filter((c) => c.name.toLowerCase().includes(q));
     };

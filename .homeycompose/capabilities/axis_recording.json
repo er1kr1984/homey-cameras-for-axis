@@ -1,7 +1,7 @@
 {
   "type": "boolean",
   "title": {
-    "en": "Recording to SD card"
+    "en": "Recording"
   },
   "getable": true,
   "setable": false,
