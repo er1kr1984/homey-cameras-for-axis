@@ -91,6 +91,25 @@ server and no extra software are needed. (If you use AXIS Camera Station Pro, se
 
 ## What your camera needs
 
+What a device can do depends on its **AXIS OS version**, its **hardware** (scene metadata needs an
+ARTPEC-7, ARTPEC-8, ARTPEC-9 or CV25 chip) and the **camera apps** installed on it. The app checks
+each device and only shows what it supports.
+
+### By AXIS OS version
+
+| AXIS OS | What the app gets | Source |
+|---|---|---|
+| **9.80** (LTS) | Events over RTSP (no WebSocket). Scene metadata frames arrive **empty: no boxes and no people/vehicle counting**; you get motion and motion insights instead. Privacy mode through the mask parameters, text through the camera's text field (the dynamic overlay only on some models). IR light, PIR (model), temperature and memory card work. No power measurement. | Seen on M1065-L, M1065-LW, M2026-LE Mk II, M3104-LVE |
+| **10.x** | Event streaming over WebSocket arrives during 10.x (release notes mention it around 10.11). From 10.6, cameras with a deep-learning processor can produce object classification metadata. | Axis release notes; not tested |
+| **11.x** | Events over WebSocket, `privacymask.cgi`, analytics metadata producer configuration, motion-tracker metadata (plain "moving object" boxes) without Object Analytics, door station call and access events. | Seen on A8207-VE (11.11) |
+| **12.x** | All of the above. With AXIS Object Analytics: labelled boxes, people/vehicle counting, vehicle types, clothing and vehicle colours, bag, close-ups (best snapshot), scenario counting and occupancy. Power measurement on models that support it; PoE per port on recorders. | Seen on P3267-LVE (12.6) and S3008 (12.10) |
+| **12.8+** | Axis Analytics Data Format 1.0: frames, consolidated object tracks and object snapshots over MQTT and the Device Data Hub. RTSP, which this app uses, carries a subset. | Axis documentation |
+
+Which object classes and attributes a camera reports also differs per model; the camera's datasheet
+is the reference.
+
+### By feature
+
 | Feature | The device needs | If it doesn't have it |
 |---|---|---|
 | Picture, live video | A camera or door station (any AXIS OS) | Recorders, speakers: no picture or live view |
