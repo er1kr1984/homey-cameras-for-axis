@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.erikrichardson.axis",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "compatibility": ">=12.7.0",
   "runtime": "nodejs",
   "sdk": 3,
