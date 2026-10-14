@@ -24,6 +24,8 @@ const EVENT_IMAGES = 10; // flow pictures kept per camera (oldest reused)
 const EVENT_SNAPSHOT_TIMEOUT_MS = 4000;
 const MAX_VIEWERS = 4;
 const AUDIO_TRIGGER_GAP_MS = 30 * 1000; // sound detection can flip every second
+const EVENT_LOG_GAP_MS = 60 * 1000; // the same event is logged at most this often
+const TRACK_SUMMARY_MS = 15 * 60 * 1000;
 const SNAPSHOT_SIZES = { small: 640, medium: 1280, full: Infinity };
 
 class CameraDevice extends Homey.Device {
@@ -47,6 +49,8 @@ class CameraDevice extends Homey.Device {
     this.trafficTimer = this.homey.setInterval(() => this._saveTraffic(), TRAFFIC_SAVE_MS);
     // "Today" counters start again at midnight: refresh them every 10 minutes.
     this.todayTimer = this.homey.setInterval(() => this._updateToday().catch(this.error), 10 * 60 * 1000);
+    this.trackStats = null;
+    this.trackSummaryTimer = this.homey.setInterval(() => this._trackSummary(), TRACK_SUMMARY_MS);
     this.features = this.getStoreValue('features') || null;
     this.instances = this.getStoreValue('event_instances') || [];
     for (const cap of ['alarm_motion', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
@@ -245,7 +249,11 @@ class CameraDevice extends Homey.Device {
       this._soundLevel(ev);
       return;
     }
-    this.diag(`event ${topic} ${JSON.stringify(details)}`);
+    this.eventLogAt = this.eventLogAt || {};
+    if (Date.now() - (this.eventLogAt[topic] || 0) > EVENT_LOG_GAP_MS) {
+      this.eventLogAt[topic] = Date.now();
+      this.diag(`event ${topic} ${JSON.stringify(details)}`);
+    }
     this.driver.triggers.event.trigger(this, {
       topic, active: state !== false, details: JSON.stringify(details),
     }).catch(this.error);
@@ -436,6 +444,7 @@ class CameraDevice extends Homey.Device {
   async _onCounted({ category, type, colors, image }) {
     const name = this.homey.__(`objects.one.${category}`) || category;
     const colorText = (colors || []).join(', ');
+    if (this.trackStats) this.trackStats.counted += 1;
     this.diag(`counted: ${name}${type ? ` (${type})` : ''}${colorText ? `, ${colorText}` : ''}`);
     this._remember('object', `${name}${colorText ? ` (${colorText})` : ''}`);
     const cap = `axis_today.${category}`;
@@ -481,6 +490,19 @@ class CameraDevice extends Homey.Device {
     }
   }
 
+  // Diagnostics: what the tracker has seen since the last summary.
+  _trackSummary() {
+    if (!this.getSetting('scene_counts')) return;
+    const st = this.trackStats;
+    this.trackStats = null;
+    if (!st) {
+      this.diag(`tracking: no scene frames in the last ${TRACK_SUMMARY_MS / 60000} min${this.scene ? '' : ' (scene stream not running)'}`);
+      return;
+    }
+    const types = Object.entries(st.types).map(([t, e]) => `${t} ${e.n}x (best ${e.best.toFixed(2)})`).join(', ');
+    this.diag(`tracking: ${st.frames} frames, objects: ${types || 'none'}; counted ${st.counted}`);
+  }
+
   _saveTraffic() {
     if (!this.tracker.dirty) return;
     this.tracker.dirty = false;
@@ -501,8 +523,11 @@ class CameraDevice extends Homey.Device {
   _startScene(forWidget = false) {
     this._stopScene();
     if (!this.getSetting('scene_counts') && !forWidget) return;
+    this.diag(`starting the scene stream${forWidget ? ' for a widget' : ''}`);
     this.scene = new RtspEventStream({ camera: this.liveCamera(), mode: 'scene', log: (...args) => this.diag(...args) });
     this.sceneSamples = [];
+    // Failures are logged and retried by the stream itself.
+    this.scene.on('error', () => {});
     this.scene.on('connected', () => {
       this.diag('reading the scene description (people and vehicles in view)');
       this.homey.clearTimeout(this.sceneCheckTimer);
@@ -527,6 +552,14 @@ class CameraDevice extends Homey.Device {
     this.lastFrame = { at: Date.now(), objects: frame.objects.map((o) => ({ ...o, image: undefined })) };
     if (!this.getSetting('scene_counts')) return;
     this.tracker.addFrame(frame);
+    const st = this.trackStats || (this.trackStats = { frames: 0, types: {}, counted: 0 });
+    st.frames += 1;
+    for (const o of frame.objects) {
+      const t = o.type || '(no type)';
+      const e = st.types[t] || (st.types[t] = { n: 0, best: 0 });
+      e.n += 1;
+      e.best = Math.max(e.best, o.likelihood || 0);
+    }
     const isHuman = (t) => /human|person|face|head/.test(t || '');
     const isVehicle = (t) => /vehicle|car|truck|bus|bike|bicycle|motorcycle/.test(t || '');
     const people = frame.objects.filter((o) => isHuman(o.type)).length;
@@ -868,6 +901,7 @@ class CameraDevice extends Homey.Device {
     this._saveTraffic();
     this.homey.clearInterval(this.trafficTimer);
     this.homey.clearInterval(this.todayTimer);
+    this.homey.clearInterval(this.trackSummaryTimer);
     this.homey.clearInterval(this.healthTimer);
     this.homey.clearTimeout(this.tamperTimer);
     this.homey.clearTimeout(this.motionOffTimer);
