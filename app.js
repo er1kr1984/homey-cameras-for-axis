@@ -1,11 +1,6 @@
 'use strict';
 
 const Homey = require('homey');
-const { applyWeriftTuning } = require('./lib/werift-tuning');
-
-const tuningFailures = applyWeriftTuning();
-const LiveRelay = require('./lib/live-relay');
-const { RtspUpstream } = require('./lib/rtsp-upstream');
 
 const LOG_LINES = 300;
 const LOG_PERSIST_MS = 60 * 1000;
@@ -39,7 +34,6 @@ class AxisApp extends Homey.App {
     });
     this._registerWidgets();
     this.diag('Axis cameras app started');
-    if (tuningFailures.length) this.diagError('Running without some speed-ups:', tuningFailures.join('; '));
   }
 
   async onUninit() {
@@ -50,6 +44,13 @@ class AxisApp extends Homey.App {
 
   getRelay() {
     if (!this.relay) {
+      // The WebRTC library (werift) takes ~40 MB; it is loaded the first time someone
+      // watches, not at start.
+      const { applyWeriftTuning } = require('./lib/werift-tuning');
+      const tuningFailures = applyWeriftTuning();
+      if (tuningFailures.length) this.diagError('Running without some speed-ups:', tuningFailures.join('; '));
+      const LiveRelay = require('./lib/live-relay');
+      const { RtspUpstream } = require('./lib/rtsp-upstream');
       this.relay = new LiveRelay({
         openUpstream: (opts) => new RtspUpstream(opts),
         log: (...args) => this.diag(...args),

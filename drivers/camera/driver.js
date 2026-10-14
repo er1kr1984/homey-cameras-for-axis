@@ -15,7 +15,19 @@ const colorMatches = (color, colors) => !color || color === 'any' || (colors || 
 const CHECK_TIMEOUT_MS = 6000; // per request while searching
 const LIST_DEADLINE_MS = 12000; // after the network search, for the logins
 
+// When the app starts, cameras start this far apart: logging in, reading events and
+// opening streams for all of them at once is a CPU spike Homey warns about.
+const START_GAP_MS = 3000;
+
 class CameraDriver extends Homey.Driver {
+
+  // ms a camera should wait before it starts (0 for one added later).
+  startDelay() {
+    const now = Date.now();
+    const at = Math.max(now, this.nextStartAt || 0);
+    this.nextStartAt = at + START_GAP_MS;
+    return at - now;
+  }
 
   async onInit() {
     const flow = this.homey.flow;

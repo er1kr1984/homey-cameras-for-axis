@@ -85,7 +85,7 @@ class CameraDevice extends Homey.Device {
     this._makeClient();
     await this._attachImage().catch((err) => this.error('image:', err.message));
     await this._attachVideo().catch((err) => this.error('video:', err.message));
-    this._start();
+    this.startTimer = this.homey.setTimeout(() => this._start(), this.driver.startDelay());
     this.healthTimer = this.homey.setInterval(() => this._healthCheck(), HEALTH_MS);
     this.appsTimer = this.homey.setInterval(() => this._checkApps().catch(this.error), APPS_CHECK_MS);
   }
@@ -1137,6 +1137,7 @@ class CameraDevice extends Homey.Device {
   }
 
   _stop() {
+    this.homey.clearTimeout(this.startTimer);
     this._saveTraffic();
     this.homey.clearInterval(this.trafficTimer);
     this.homey.clearInterval(this.todayTimer);

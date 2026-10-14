@@ -67,7 +67,10 @@ function parseAuth(header) {
 }
 
 class FakeCamera {
-  constructor({ username = 'homey', password = 'secret', rtspFps = 25 } = {}) {
+  constructor({
+    username = 'homey', password = 'secret', rtspFps = 25, packetsPerFrame = 1,
+  } = {}) {
+    this.packetsPerFrame = packetsPerFrame; // > 1: P frames as FU-A of 1200-byte packets (load tests)
     this.username = username;
     this.password = password;
     this.rtspFps = rtspFps;
@@ -380,6 +383,12 @@ class FakeCamera {
           const fuHeader = (i === 0 ? 0x80 : 0) | (i === parts.length - 1 ? 0x40 : 0) | 5;
           send(Buffer.concat([Buffer.from([0x7c, fuHeader]), part]), i === parts.length - 1);
         });
+      } else if (this.packetsPerFrame > 1) {
+        const n = this.packetsPerFrame;
+        for (let i = 0; i < n; i++) {
+          const fuHeader = (i === 0 ? 0x80 : 0) | (i === n - 1 ? 0x40 : 0) | 1;
+          send(Buffer.concat([Buffer.from([0x5c, fuHeader]), crypto.randomBytes(1200)]), i === n - 1);
+        }
       } else {
         send(Buffer.concat([Buffer.from([0x41]), crypto.randomBytes(300)]), true);
       }
