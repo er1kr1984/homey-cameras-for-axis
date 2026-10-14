@@ -252,7 +252,11 @@ class CameraDevice extends Homey.Device {
     if (has(/^SoundPressureLevel\/Metrics$/)) wanted.set('measure_noise', null);
     if (video && has(/^Storage\/Recording$/)) wanted.set('axis_recording', null);
     if (has(/^Device\/Light\/Status$|^LightControl\/LightStatusChanged\/Status$/)) wanted.set('axis_ir', null);
-    if (video && has(/^VideoSource\/LiveStreamAccessed$/)) wanted.set('axis_watched', null);
+    // "Live view watched" also counts the app's own RTSP connections (events on older
+    // AXIS OS, people/vehicle tracking), which would make it always on: only offered when
+    // the app doesn't keep such a connection open.
+    const ownRtsp = this.getStoreValue('event_transport') === 'rtsp' || Boolean(this.getSetting('scene_counts'));
+    if (video && !ownRtsp && has(/^VideoSource\/LiveStreamAccessed$/)) wanted.set('axis_watched', null);
     if (has(/^Device\/Sensor\/PIR$/)) wanted.set('axis_pir', null);
     if (has(/^Call\/State$|^Device\/Intercom\/CallState$/)) wanted.set('axis_call', null);
     const f = this.features || {};

@@ -241,8 +241,15 @@ class AxisApp extends Homey.App {
           start: j ? j.subarray(0, 2).toString('hex') : '', end: j ? j.subarray(-2).toString('hex') : '',
         });
       }
+      let widget = null;
+      try {
+        widget = d.widgetState();
+      } catch (err) {
+        widget = { error: err.stack };
+      }
       return {
         name: d.getName(),
+        widget,
         pictures,
         tracking,
         analytics,
