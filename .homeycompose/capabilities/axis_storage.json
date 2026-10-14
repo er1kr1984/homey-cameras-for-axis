@@ -1,0 +1,13 @@
+{
+  "type": "number",
+  "title": { "en": "Memory card used" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "units": { "en": "%" },
+  "decimals": 0,
+  "min": 0,
+  "max": 100,
+  "icon": "/assets/icon.svg"
+}

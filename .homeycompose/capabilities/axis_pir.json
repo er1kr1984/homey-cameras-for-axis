@@ -1,0 +1,10 @@
+{
+  "type": "boolean",
+  "title": { "en": "Body heat (PIR)" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "insightsTitleTrue": { "en": "Body heat detected" },
+  "insightsTitleFalse": { "en": "No body heat" }
+}

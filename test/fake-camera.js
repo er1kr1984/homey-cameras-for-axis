@@ -153,6 +153,36 @@ class FakeCamera {
           return this._json(res, { apiList: [{ id: 'light-control', version: '1.1' }, { id: 'basic-device-info', version: '1.2' }] });
         case '/axis-cgi/param.cgi': {
           const group = url.searchParams.get('group');
+          // Privacy masks as parameters (cameras without privacymask.cgi).
+          this.maskParams = this.maskParams || {};
+          const action = url.searchParams.get('action');
+          if (action === 'add' && group === 'Image.I0.Overlay.MaskWindows') {
+            const n = Object.keys(this.maskParams).filter((k) => k.endsWith('.Name')).length;
+            for (const [k, v] of url.searchParams) {
+              if (k.startsWith('Image.I0.Overlay.MaskWindows.M.')) this.maskParams[k.replace('.M.', `.M${n}.`)] = v;
+            }
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end(`M${n} OK`);
+          }
+          if (action === 'remove') {
+            for (const k of Object.keys(this.maskParams)) if (k.startsWith(`${group}.`)) delete this.maskParams[k];
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('OK');
+          }
+          if (group === 'Image.I0.Overlay.MaskWindows') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end(Object.entries(this.maskParams).map(([k, v]) => `root.${k}=${v}\n`).join(''));
+          }
+          if (url.searchParams.get('action') === 'update') {
+            this.lastParamUpdate = Object.fromEntries([...url.searchParams].filter(([k]) => k !== 'action'));
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('OK');
+          }
+          if (group === 'MediaClip') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            return res.end('root.MediaClip.M0.Name=Warning\nroot.MediaClip.M0.Location=/etc/audioclips/MediaClip.M0.au\nroot.MediaClip.M0.Type=audio\n'
+              + 'root.MediaClip.M1.Name=Dog barking\nroot.MediaClip.M1.Location=/etc/audioclips/MediaClip.M1.au\nroot.MediaClip.M1.Type=audio\n');
+          }
           if (group === 'Properties') {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
             return res.end('root.Properties.PTZ.PTZ=yes\nroot.Properties.Image.Resolution=1920x1080,1280x720,800x450,640x360,320x180\n'
@@ -201,6 +231,65 @@ class FakeCamera {
           this.lastPort = url.search;
           res.writeHead(200, { 'Content-Type': 'text/plain' });
           return res.end(url.searchParams.get('check') ? 'port1=1\n' : 'OK');
+        // Documented answers (VAPIX) for the newer features.
+        case '/axis-cgi/privacymask.cgi': {
+          if (this.noPrivacyCgi) {
+            res.writeHead(404);
+            return res.end();
+          }
+          this.masks = this.masks || [];
+          const action = url.searchParams.get('action');
+          const name = url.searchParams.get('name');
+          res.writeHead(200, { 'Content-Type': url.searchParams.get('query') ? 'application/json' : 'text/plain' });
+          if (url.searchParams.get('query') === 'listpxjson') {
+            return res.end(JSON.stringify({ listpx: this.masks.map((m, id) => ({ id, name: m, enabled: true, position: [] })) }));
+          }
+          if (action === 'add') this.masks.push(name);
+          if (action === 'remove') this.masks = this.masks.filter((m) => m !== name);
+          this.lastMask = url.search;
+          return res.end('OK');
+        }
+        case '/axis-cgi/mediaclip.cgi':
+          this.lastClip = url.search;
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          return res.end('OK');
+        case '/axis-cgi/siren_and_light.cgi': {
+          const { method, params } = json();
+          this.lastSiren = { method, params };
+          if (method === 'getProfiles') return this._json(res, { profiles: [{ name: 'Profile 1', description: 'Intruder' }, { name: 'Profile 2' }] });
+          return this._json(res, method === 'start' ? { sirenId: 1, lightId: 1 } : {});
+        }
+        case '/axis-cgi/firmwaremanagement.cgi':
+          this.lastFirmware = json().method;
+          return this._json(res, {});
+        case '/axis-cgi/dynamicoverlay/dynamicoverlay.cgi': {
+          const { method, params } = json();
+          this.lastOverlay = { method, params };
+          return this._json(res, method === 'addText' ? { camera: 1, identity: 7 } : {});
+        }
+        case '/axis-cgi/temperaturecontrol.cgi':
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          return res.end('Sensor.S0.Name=Main\nSensor.S0.Celsius=43.50\nSensor.S0.Fahrenheit=110.30\nSensor.S1.Name=CPU\nSensor.S1.Celsius=50.44\n'
+            + 'Heater.H0.Status=Running\nHeater.H0.TimeUntilStop=0\nFan.F0.Status=Stopped\nFan.F0.TimeUntilStop=0\n');
+        case '/axis-cgi/disks/list.cgi':
+          res.writeHead(200, { 'Content-Type': 'text/xml' });
+          return res.end('<?xml version="1.0" ?><root><disks numberofdisks="1"><disk diskid="SD_DISK" name="" totalsize="31154688" freesize="7788672" '
+            + 'cleanuplevel="95" cleanupmaxage="7" cleanuppolicy="fifo" locked="no" full="no" readonly="no" status="OK" filesystem="ext4" group="S0" requiredfilesystem="none"/></disks></root>');
+        case '/local/objectanalytics/control.cgi': {
+          const { method, params } = json();
+          this.lastAoa = { method, params };
+          if (method === 'getAccumulatedCounts') return this._json(res, { resetTime: '2026-10-14T00:00:00Z', timeStamp: '2026-10-14T12:00:00Z', total: 7, human: 5, car: 2 });
+          if (method === 'getOccupancy') return this._json(res, { timeStamp: '2026-10-14T12:00:00Z', total: 3, human: 1, car: 2 });
+          return this._json(res, {});
+        }
+        case '/axis-cgi/analyticsmetadataconfig.cgi': {
+          const { method, params } = json();
+          this.lastProducers = { method, params };
+          if (method === 'listProducers') {
+            return this._json(res, { producers: [{ name: 'AnalyticsSceneDescription', niceName: 'Analytics Scene Description', videochannels: [{ channel: 1, enabled: false }] }] });
+          }
+          return this._json(res, {});
+        }
         default:
           res.writeHead(404);
           return res.end();

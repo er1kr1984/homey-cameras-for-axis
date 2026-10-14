@@ -8,7 +8,8 @@
     "bad_response": "The camera gave an answer the app could not read.",
     "too_many_streams": "Too many cameras are being watched at once. Close one and try again.",
     "no_picture": "The camera did not send a picture.",
-    "bad_address": "Type the camera's address without http:// or slashes, for example 192.168.1.20."
+    "bad_address": "Type the camera's address without http:// or slashes, for example 192.168.1.20.",
+    "no_scenario": "That Object Analytics scenario no longer exists on the camera. Pick it again in the flow card."
   },
   "pair": {
     "noUsername": "Type the camera's username.",
@@ -46,7 +47,9 @@
     "bitrate": "Video bitrate degraded",
     "ptz": "PTZ error",
     "actionFailed": "An action failed",
-    "none": "No problems"
+    "none": "No problems",
+    "fan": "The fan has stopped working",
+    "poe": "Power over the network cable (PoE) has a problem"
   },
   "sounds": {
     "glassbreak": "Breaking glass",
@@ -108,7 +111,20 @@
     "hoursMinutes": "__h__ h __m__ min",
     "noMotionYet": "No motion yet.",
     "motionToday": "motion today",
-    "motionMinutes": "__n__ min of motion"
+    "motionMinutes": "__n__ min of motion",
+    "blockedIp": "Blocked {{address}} after wrong passwords",
+    "soundAbove": "Sound above the camera's limit",
+    "soundBelow": "Sound below the camera's limit",
+    "pir": "Body heat sensed",
+    "doorbell": "Someone pressed the call button",
+    "pinEntered": "A code was entered",
+    "tagShown": "A card or tag was shown",
+    "accessGranted": "Entry allowed",
+    "accessDenied": "Entry refused",
+    "face": "Face seen",
+    "plate": "Licence plate seen {{plate}}",
+    "privacyOn": "Privacy mode on",
+    "privacyOff": "Privacy mode off"
   },
   "objects": {
     "one": {
@@ -139,7 +155,8 @@
       "bicycle": "Bicycles today",
       "motorcycle": "Motorbikes today",
       "vehicle": "Other vehicles today"
-    }
+    },
+    "noHardhat": "person without a hard hat"
   },
   "directions": {
     "right": "left to right",
@@ -159,5 +176,38 @@
     "motion": "motion __n__ times (__time__ in total)",
     "noMotion": "no motion",
     "motionAlso": "Also __text__."
+  },
+  "tampering": {
+    "covered": "covered or blurred",
+    "shock": "knock or shock",
+    "scene": "the view changed all at once"
+  },
+  "scenarioTypes": {
+    "motion": "Object in area",
+    "fence": "Line crossing",
+    "crosslinecounting": "Crossline counting",
+    "occupancyInArea": "Occupancy in area",
+    "tailgating": "Tailgating"
+  },
+  "colors": {
+    "black": "black",
+    "white": "white",
+    "grey": "grey",
+    "red": "red",
+    "orange": "orange",
+    "yellow": "yellow",
+    "green": "green",
+    "blue": "blue",
+    "purple": "purple",
+    "pink": "pink",
+    "brown": "brown",
+    "beige": "beige"
+  },
+  "details": {
+    "top": "{{c}} top",
+    "bottom": "{{c}} trousers",
+    "hat": "hat",
+    "bag": "bag",
+    "speed": "{{n}} km/h"
   }
 }

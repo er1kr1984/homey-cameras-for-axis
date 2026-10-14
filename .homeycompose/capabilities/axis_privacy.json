@@ -1,0 +1,10 @@
+{
+  "type": "boolean",
+  "title": { "en": "Privacy mode" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "insights": true,
+  "insightsTitleTrue": { "en": "Privacy mode on" },
+  "insightsTitleFalse": { "en": "Privacy mode off" }
+}

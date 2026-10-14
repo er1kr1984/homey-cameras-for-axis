@@ -151,6 +151,16 @@
             }
           },
           {
+            "name": "kind",
+            "type": "string",
+            "title": {
+              "en": "Kind of scenario"
+            },
+            "example": {
+              "en": "Object in area"
+            }
+          },
+          {
             "name": "image",
             "type": "image",
             "title": {
@@ -165,9 +175,19 @@
           "en": "Camera was tampered with"
         },
         "hint": {
-          "en": "The camera was covered, moved or spray-painted (tampering detection must be on in the camera)."
+          "en": "The camera's view was covered, blurred or changed all at once (for example turned away), or a door station felt a knock or shock."
         },
         "tokens": [
+          {
+            "name": "reason",
+            "type": "string",
+            "title": {
+              "en": "What happened"
+            },
+            "example": {
+              "en": "covered or blurred"
+            }
+          },
           {
             "name": "image",
             "type": "image",
@@ -418,7 +438,7 @@
           "en": "Counting scenario [[scenario]] counted"
         },
         "hint": {
-          "en": "A counting scenario in AXIS Object Analytics counted a person or vehicle crossing its line."
+          "en": "A crossline counting scenario in AXIS Object Analytics counted a person or vehicle crossing its line. The totals are since the counts were last reset (at midnight, or with the 'Reset the counts' card)."
         },
         "args": [
           {
@@ -463,6 +483,56 @@
               "en": "People counted"
             },
             "example": 10
+          },
+          {
+            "name": "object",
+            "type": "string",
+            "title": {
+              "en": "What crossed"
+            },
+            "example": {
+              "en": "car"
+            }
+          },
+          {
+            "name": "cars",
+            "type": "number",
+            "title": {
+              "en": "Cars counted"
+            },
+            "example": 8
+          },
+          {
+            "name": "trucks",
+            "type": "number",
+            "title": {
+              "en": "Trucks counted"
+            },
+            "example": 1
+          },
+          {
+            "name": "buses",
+            "type": "number",
+            "title": {
+              "en": "Buses counted"
+            },
+            "example": 0
+          },
+          {
+            "name": "bikes",
+            "type": "number",
+            "title": {
+              "en": "Bikes counted"
+            },
+            "example": 2
+          },
+          {
+            "name": "others",
+            "type": "number",
+            "title": {
+              "en": "Other vehicles counted"
+            },
+            "example": 0
           }
         ]
       },
@@ -660,7 +730,7 @@
           "en": "A [[type]] was detected (colour: [[color]])"
         },
         "hint": {
-          "en": "Each new person or vehicle the camera's Object Analytics recognises. Needs 'Track and count people and vehicles' on in the device settings. The picture is the camera's own close-up of the object when it sends one. Colour example: pick 'red' to only react to a person in a red top or a red car."
+          "en": "Each new person or vehicle the camera's Object Analytics recognises. Needs 'Track and count people and vehicles' on in the device settings. The picture is the camera's own close-up when it sends one. Colour example: pick 'red' to react only to a person in a red top or red trousers, or a red car. Top, trousers, bag, hat, licence plate and speed are filled in when the camera reports them (speed needs a radar camera)."
         },
         "args": [
           {
@@ -742,6 +812,12 @@
                 "id": "any",
                 "label": {
                   "en": "any colour"
+                }
+              },
+              {
+                "id": "beige",
+                "label": {
+                  "en": "beige"
                 }
               },
               {
@@ -840,6 +916,58 @@
             "title": {
               "en": "Picture"
             }
+          },
+          {
+            "name": "top",
+            "type": "string",
+            "title": {
+              "en": "Top colour"
+            },
+            "example": {
+              "en": "red"
+            }
+          },
+          {
+            "name": "bottom",
+            "type": "string",
+            "title": {
+              "en": "Trousers colour"
+            },
+            "example": {
+              "en": "blue"
+            }
+          },
+          {
+            "name": "bag",
+            "type": "boolean",
+            "title": {
+              "en": "Carries a bag"
+            }
+          },
+          {
+            "name": "hat",
+            "type": "boolean",
+            "title": {
+              "en": "Wears a hat"
+            }
+          },
+          {
+            "name": "plate",
+            "type": "string",
+            "title": {
+              "en": "Licence plate"
+            },
+            "example": {
+              "en": "ABC123"
+            }
+          },
+          {
+            "name": "speed",
+            "type": "number",
+            "title": {
+              "en": "Speed (km/h)"
+            },
+            "example": 12
           }
         ]
       },
@@ -976,6 +1104,12 @@
                 }
               },
               {
+                "id": "beige",
+                "label": {
+                  "en": "beige"
+                }
+              },
+              {
                 "id": "black",
                 "label": {
                   "en": "black"
@@ -1082,6 +1216,58 @@
             "example": {
               "en": "white"
             }
+          },
+          {
+            "name": "top",
+            "type": "string",
+            "title": {
+              "en": "Top colour"
+            },
+            "example": {
+              "en": "red"
+            }
+          },
+          {
+            "name": "bottom",
+            "type": "string",
+            "title": {
+              "en": "Trousers colour"
+            },
+            "example": {
+              "en": "blue"
+            }
+          },
+          {
+            "name": "bag",
+            "type": "boolean",
+            "title": {
+              "en": "Carries a bag"
+            }
+          },
+          {
+            "name": "hat",
+            "type": "boolean",
+            "title": {
+              "en": "Wears a hat"
+            }
+          },
+          {
+            "name": "plate",
+            "type": "string",
+            "title": {
+              "en": "Licence plate"
+            },
+            "example": {
+              "en": "ABC123"
+            }
+          },
+          {
+            "name": "speed",
+            "type": "number",
+            "title": {
+              "en": "Speed (km/h)"
+            },
+            "example": 12
           }
         ]
       },
@@ -1214,6 +1400,58 @@
             "title": {
               "en": "Picture"
             }
+          },
+          {
+            "name": "top",
+            "type": "string",
+            "title": {
+              "en": "Top colour"
+            },
+            "example": {
+              "en": "red"
+            }
+          },
+          {
+            "name": "bottom",
+            "type": "string",
+            "title": {
+              "en": "Trousers colour"
+            },
+            "example": {
+              "en": "blue"
+            }
+          },
+          {
+            "name": "bag",
+            "type": "boolean",
+            "title": {
+              "en": "Carries a bag"
+            }
+          },
+          {
+            "name": "hat",
+            "type": "boolean",
+            "title": {
+              "en": "Wears a hat"
+            }
+          },
+          {
+            "name": "plate",
+            "type": "string",
+            "title": {
+              "en": "Licence plate"
+            },
+            "example": {
+              "en": "ABC123"
+            }
+          },
+          {
+            "name": "speed",
+            "type": "number",
+            "title": {
+              "en": "Speed (km/h)"
+            },
+            "example": 12
           }
         ]
       },
@@ -1397,6 +1635,521 @@
             "example": {
               "en": "17:00"
             }
+          }
+        ]
+      },
+      {
+        "id": "pir_changed",
+        "title": {
+          "en": "Body heat sensor changed"
+        },
+        "titleFormatted": {
+          "en": "Body heat sensor [[state]]"
+        },
+        "hint": {
+          "en": "The camera's PIR sensor senses body heat (people, animals) in front of it. It gives far fewer false alarms than motion in the picture: rain, shadows and insects don't set it off."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "title": {
+              "en": "When"
+            },
+            "values": [
+              {
+                "id": "on",
+                "label": {
+                  "en": "senses someone"
+                }
+              },
+              {
+                "id": "off",
+                "label": {
+                  "en": "is quiet again"
+                }
+              },
+              {
+                "id": "any",
+                "label": {
+                  "en": "changes"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "active",
+            "type": "boolean",
+            "title": {
+              "en": "Sensing someone"
+            }
+          }
+        ]
+      },
+      {
+        "id": "ip_blocked",
+        "title": {
+          "en": "Someone was blocked for wrong logins"
+        },
+        "hint": {
+          "en": "The camera blocked an address after too many wrong passwords. Someone may be trying to get into your camera."
+        },
+        "tokens": [
+          {
+            "name": "address",
+            "type": "string",
+            "title": {
+              "en": "Blocked address"
+            },
+            "example": {
+              "en": "192.168.1.50"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "sound_limit",
+        "title": {
+          "en": "Sound went past the camera's limit"
+        },
+        "titleFormatted": {
+          "en": "Sound went [[limit]] the camera's limit"
+        },
+        "hint": {
+          "en": "The limits are set on the camera's own web page (Audio → Sound pressure level)."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "limit",
+            "type": "dropdown",
+            "title": {
+              "en": "Limit"
+            },
+            "values": [
+              {
+                "id": "above",
+                "label": {
+                  "en": "above the upper"
+                }
+              },
+              {
+                "id": "below",
+                "label": {
+                  "en": "below the lower"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "above",
+            "type": "boolean",
+            "title": {
+              "en": "Above the upper limit"
+            }
+          }
+        ]
+      },
+      {
+        "id": "doorbell",
+        "title": {
+          "en": "Someone pressed the call button"
+        },
+        "hint": {
+          "en": "A visitor pressed the call button on the door station (it starts calling). The picture is taken at that moment."
+        },
+        "tokens": [
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Picture"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "call_state",
+        "title": {
+          "en": "Door station call changed"
+        },
+        "hint": {
+          "en": "Calls on the door station: calling, ringing, active (talking) and idle (ended)."
+        },
+        "tokens": [
+          {
+            "name": "state",
+            "type": "string",
+            "title": {
+              "en": "Call state"
+            },
+            "example": {
+              "en": "Active"
+            }
+          },
+          {
+            "name": "active",
+            "type": "boolean",
+            "title": {
+              "en": "Call in progress"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "pin_entered",
+        "title": {
+          "en": "A PIN code was entered"
+        },
+        "hint": {
+          "en": "Someone typed a code on the door station's keypad. The digits are only filled in when the door station is set to send them (it hides them by default)."
+        },
+        "tokens": [
+          {
+            "name": "pin",
+            "type": "string",
+            "title": {
+              "en": "Code"
+            },
+            "example": {
+              "en": "1234"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "tag_shown",
+        "title": {
+          "en": "A card or tag was shown"
+        },
+        "hint": {
+          "en": "Someone held an RFID card or key fob to the door station's reader. The number is only filled in when the door station is set to send it."
+        },
+        "tokens": [
+          {
+            "name": "card",
+            "type": "string",
+            "title": {
+              "en": "Card number"
+            },
+            "example": {
+              "en": "123456"
+            }
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "title": {
+              "en": "Card type"
+            },
+            "example": {
+              "en": "MIFARE"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "access_decided",
+        "title": {
+          "en": "The door station allowed or refused entry"
+        },
+        "titleFormatted": {
+          "en": "The door station [[result]] entry"
+        },
+        "hint": {
+          "en": "From the door station's own entry list (codes and cards it knows)."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "result",
+            "type": "dropdown",
+            "title": {
+              "en": "Result"
+            },
+            "values": [
+              {
+                "id": "any",
+                "label": {
+                  "en": "allowed or refused"
+                }
+              },
+              {
+                "id": "granted",
+                "label": {
+                  "en": "allowed"
+                }
+              },
+              {
+                "id": "denied",
+                "label": {
+                  "en": "refused"
+                }
+              }
+            ]
+          }
+        ],
+        "tokens": [
+          {
+            "name": "granted",
+            "type": "boolean",
+            "title": {
+              "en": "Allowed"
+            }
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "title": {
+              "en": "Code or card"
+            },
+            "example": {
+              "en": "Front door card"
+            }
+          }
+        ]
+      },
+      {
+        "id": "presence",
+        "title": {
+          "en": "Someone is at the door station"
+        },
+        "hint": {
+          "en": "The door station noticed someone in front of it (for example the screen woke up)."
+        },
+        "tokens": [],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "face_seen",
+        "title": {
+          "en": "A face was seen"
+        },
+        "hint": {
+          "en": "The camera's Object Analytics found a face and sent a close-up. Only cameras that report faces; needs 'Track and count people and vehicles' on."
+        },
+        "tokens": [
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Close-up"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "plate_seen",
+        "title": {
+          "en": "A licence plate was seen"
+        },
+        "hint": {
+          "en": "The camera's Object Analytics found a licence plate and sent a close-up. The plate number is filled in only on cameras that read plates. Needs 'Track and count people and vehicles' on."
+        },
+        "tokens": [
+          {
+            "name": "plate",
+            "type": "string",
+            "title": {
+              "en": "Plate"
+            },
+            "example": {
+              "en": "ABC123"
+            }
+          },
+          {
+            "name": "country",
+            "type": "string",
+            "title": {
+              "en": "Country"
+            },
+            "example": {
+              "en": "SE"
+            }
+          },
+          {
+            "name": "image",
+            "type": "image",
+            "title": {
+              "en": "Close-up"
+            }
+          }
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "occupancy_changed",
+        "title": {
+          "en": "Number in an area changed"
+        },
+        "titleFormatted": {
+          "en": "Number in area [[scenario]] changed"
+        },
+        "hint": {
+          "en": "An 'Occupancy in area' scenario in AXIS Object Analytics: how many people and vehicles are in its area right now."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "scenario",
+            "type": "autocomplete",
+            "title": {
+              "en": "Area"
+            },
+            "placeholder": {
+              "en": "Any area"
+            }
+          }
+        ],
+        "tokens": [
+          {
+            "name": "scenario",
+            "type": "string",
+            "title": {
+              "en": "Area"
+            },
+            "example": {
+              "en": "Parking"
+            }
+          },
+          {
+            "name": "total",
+            "type": "number",
+            "title": {
+              "en": "In the area now"
+            },
+            "example": 3
+          },
+          {
+            "name": "change",
+            "type": "number",
+            "title": {
+              "en": "Change"
+            },
+            "example": 1
+          },
+          {
+            "name": "humans",
+            "type": "number",
+            "title": {
+              "en": "People"
+            },
+            "example": 1
+          },
+          {
+            "name": "cars",
+            "type": "number",
+            "title": {
+              "en": "Cars"
+            },
+            "example": 2
+          },
+          {
+            "name": "trucks",
+            "type": "number",
+            "title": {
+              "en": "Trucks"
+            },
+            "example": 0
+          },
+          {
+            "name": "buses",
+            "type": "number",
+            "title": {
+              "en": "Buses"
+            },
+            "example": 0
+          },
+          {
+            "name": "bikes",
+            "type": "number",
+            "title": {
+              "en": "Bikes"
+            },
+            "example": 0
+          },
+          {
+            "name": "others",
+            "type": "number",
+            "title": {
+              "en": "Other vehicles"
+            },
+            "example": 0
           }
         ]
       }
@@ -1643,6 +2396,79 @@
                 }
               }
             ]
+          }
+        ]
+      },
+      {
+        "id": "pir_active",
+        "title": {
+          "en": "Body heat sensor !{{senses|doesn't sense}} someone"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "privacy_on",
+        "title": {
+          "en": "Privacy mode is !{{on|off}}"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "call_active",
+        "title": {
+          "en": "A call is !{{|not}} in progress"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "occupancy_more",
+        "title": {
+          "en": "More than a number in an area"
+        },
+        "titleFormatted": {
+          "en": "!{{More|Not more}} than [[count]] in area [[scenario]]"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "scenario",
+            "type": "autocomplete",
+            "title": {
+              "en": "Area"
+            }
+          },
+          {
+            "name": "count",
+            "type": "number",
+            "title": {
+              "en": "Number"
+            },
+            "min": 0,
+            "placeholder": {
+              "en": "0"
+            }
           }
         ]
       }
@@ -1995,6 +2821,292 @@
             }
           }
         ]
+      },
+      {
+        "id": "privacy_set",
+        "title": {
+          "en": "Turn privacy mode on or off"
+        },
+        "titleFormatted": {
+          "en": "Turn privacy mode [[state]]"
+        },
+        "hint": {
+          "en": "Covers the whole picture, so live view and recordings show nothing, for example while you're at home. Needs the camera's administrator account."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "title": {
+              "en": "Privacy mode"
+            },
+            "values": [
+              {
+                "id": "on",
+                "label": {
+                  "en": "on"
+                }
+              },
+              {
+                "id": "off",
+                "label": {
+                  "en": "off"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "play_clip",
+        "title": {
+          "en": "Play a sound"
+        },
+        "titleFormatted": {
+          "en": "Play sound [[clip]] at volume [[volume]]"
+        },
+        "hint": {
+          "en": "Plays one of the sounds stored on the camera (camera web page: Audio → Audio clips), through its speaker or a paired network speaker. Volume 0–100; leave empty for the camera's own volume."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "clip",
+            "type": "autocomplete",
+            "title": {
+              "en": "Sound"
+            }
+          },
+          {
+            "name": "volume",
+            "type": "number",
+            "title": {
+              "en": "Volume"
+            },
+            "min": 0,
+            "max": 100,
+            "required": false,
+            "placeholder": {
+              "en": "camera's volume"
+            }
+          }
+        ]
+      },
+      {
+        "id": "stop_clip",
+        "title": {
+          "en": "Stop the sound"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "siren_start",
+        "title": {
+          "en": "Start siren and light"
+        },
+        "titleFormatted": {
+          "en": "Start siren and light profile [[profile]]"
+        },
+        "hint": {
+          "en": "For Axis devices with a siren or strobe light. Profiles are made on the device's web page."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "profile",
+            "type": "autocomplete",
+            "title": {
+              "en": "Profile"
+            }
+          }
+        ]
+      },
+      {
+        "id": "siren_stop",
+        "title": {
+          "en": "Stop siren and light"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "restart_camera",
+        "title": {
+          "en": "Restart the camera"
+        },
+        "hint": {
+          "en": "For when a camera hangs. It's gone for about a minute. Needs the camera's administrator account."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "show_text",
+        "title": {
+          "en": "Show text on the picture"
+        },
+        "titleFormatted": {
+          "en": "Show [[text]] on the picture at [[position]]"
+        },
+        "hint": {
+          "en": "For example 'Away mode' or the outside temperature. The text stays until you change or remove it. The same card again changes the text."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "text",
+            "type": "text",
+            "title": {
+              "en": "Text"
+            },
+            "placeholder": {
+              "en": "Away mode"
+            }
+          },
+          {
+            "name": "position",
+            "type": "dropdown",
+            "title": {
+              "en": "Where"
+            },
+            "values": [
+              {
+                "id": "topLeft",
+                "label": {
+                  "en": "top left"
+                }
+              },
+              {
+                "id": "top",
+                "label": {
+                  "en": "top"
+                }
+              },
+              {
+                "id": "topRight",
+                "label": {
+                  "en": "top right"
+                }
+              },
+              {
+                "id": "bottomLeft",
+                "label": {
+                  "en": "bottom left"
+                }
+              },
+              {
+                "id": "bottom",
+                "label": {
+                  "en": "bottom"
+                }
+              },
+              {
+                "id": "bottomRight",
+                "label": {
+                  "en": "bottom right"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "remove_text",
+        "title": {
+          "en": "Remove the text from the picture"
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          }
+        ]
+      },
+      {
+        "id": "reset_counts",
+        "title": {
+          "en": "Reset the counts"
+        },
+        "titleFormatted": {
+          "en": "Reset the counts of [[scenario]]"
+        },
+        "hint": {
+          "en": "Sets a crossline counting scenario in AXIS Object Analytics back to 0."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "scenario",
+            "type": "autocomplete",
+            "title": {
+              "en": "Scenario"
+            }
+          }
+        ]
+      },
+      {
+        "id": "test_scenario",
+        "title": {
+          "en": "Test an Object Analytics alarm"
+        },
+        "titleFormatted": {
+          "en": "Test alarm of [[scenario]]"
+        },
+        "hint": {
+          "en": "Makes the scenario give its alarm for 3 seconds, to try out your flows and the camera's own rules."
+        },
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=camera"
+          },
+          {
+            "name": "scenario",
+            "type": "autocomplete",
+            "title": {
+              "en": "Scenario"
+            }
+          }
+        ]
       }
     ]
   },
@@ -2283,6 +3395,17 @@
               "value": true,
               "hint": {
                 "en": "When on, a person or vehicle seen by AXIS Object Analytics also turns on the motion alarm."
+              }
+            },
+            {
+              "id": "pir_motion",
+              "type": "checkbox",
+              "label": {
+                "en": "Body heat sensor counts as motion"
+              },
+              "value": true,
+              "hint": {
+                "en": "Only for cameras with a PIR (body heat) sensor, such as the M1065-L. On: the motion alarm also goes on when the sensor feels someone. Off: the sensor only has its own alarm and flow card."
               }
             }
           ]
@@ -2694,6 +3817,22 @@
     }
   },
   "capabilities": {
+    "axis_call": {
+      "type": "boolean",
+      "title": {
+        "en": "Call in progress"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Call started"
+      },
+      "insightsTitleFalse": {
+        "en": "Call ended"
+      }
+    },
     "axis_count": {
       "type": "number",
       "title": {
@@ -2753,6 +3892,18 @@
         "en": "Camera switched to day mode"
       }
     },
+    "axis_occupancy": {
+      "type": "number",
+      "title": {
+        "en": "In the area now"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "decimals": 0,
+      "icon": "/assets/icon.svg"
+    },
     "axis_people": {
       "type": "number",
       "title": {
@@ -2764,6 +3915,38 @@
       "insights": true,
       "decimals": 0,
       "icon": "/assets/icon.svg"
+    },
+    "axis_pir": {
+      "type": "boolean",
+      "title": {
+        "en": "Body heat (PIR)"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Body heat detected"
+      },
+      "insightsTitleFalse": {
+        "en": "No body heat"
+      }
+    },
+    "axis_privacy": {
+      "type": "boolean",
+      "title": {
+        "en": "Privacy mode"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Privacy mode on"
+      },
+      "insightsTitleFalse": {
+        "en": "Privacy mode off"
+      }
     },
     "axis_problem": {
       "type": "string",
@@ -2790,6 +3973,23 @@
       "insightsTitleFalse": {
         "en": "Recording stopped"
       }
+    },
+    "axis_storage": {
+      "type": "number",
+      "title": {
+        "en": "Memory card used"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "units": {
+        "en": "%"
+      },
+      "decimals": 0,
+      "min": 0,
+      "max": 100,
+      "icon": "/assets/icon.svg"
     },
     "axis_today": {
       "type": "number",

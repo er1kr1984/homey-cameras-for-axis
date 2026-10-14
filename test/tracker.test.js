@@ -13,8 +13,46 @@ test('categories from the camera\'s object types', () => {
   assert.strictEqual(categoryOf('Bicycle'), 'bicycle');
   assert.strictEqual(categoryOf('MotorCycle'), 'motorcycle');
   assert.strictEqual(categoryOf('Vehicle'), 'vehicle');
-  assert.strictEqual(categoryOf('Face'), null);
-  assert.strictEqual(categoryOf('LicensePlate'), null);
+  assert.strictEqual(categoryOf('HumanFace'), 'face');
+  assert.strictEqual(categoryOf('LicensePlate'), 'plate');
+  assert.strictEqual(categoryOf('othervehicle'), 'vehicle');
+  assert.strictEqual(categoryOf('motorcycle/bicycle'), 'bicycle');
+  assert.strictEqual(categoryOf('missing_hardhat'), 'person');
+});
+
+test('details, renamed objects, faces and plates', () => {
+  let now = Date.parse('2026-10-13T10:15:00Z');
+  const counted = [];
+  const gone = [];
+  const features = [];
+  const tr = new Tracker({
+    now: () => now, timeZone: 'Europe/Stockholm', onCounted: (o) => counted.push(o), onGone: (o) => gone.push(o), onFeature: (f) => features.push(f),
+  });
+  const person = (id, extra = {}) => ({
+    id, type: 'human', likelihood: 0.9, colors: [], upper: ['red'], lower: ['blue'], bag: true, ...extra,
+  });
+  tr.addFrame({ objects: [person('1'), { id: '9', type: 'humanface', likelihood: 0.8, image: 'FACE' }] });
+  tr.addFrame({ objects: [person('1', { speed: 1.4 })] });
+  assert.strictEqual(counted.length, 1);
+  assert.deepStrictEqual(counted[0].attrs.upper, ['red']);
+  assert.deepStrictEqual(counted[0].attrs.lower, ['blue']);
+  assert.strictEqual(counted[0].attrs.bag, true);
+  assert.strictEqual(counted[0].attrs.speed, 1.4);
+  assert.deepStrictEqual(features.map((f) => [f.kind, f.image]), [['face', 'FACE']]);
+  // The camera renames 1 -> 5: the same person, not counted again.
+  now += 1000;
+  tr.addFrame({ objects: [person('5', { hat: true })], renames: [{ from: '1', to: '5' }] });
+  tr.addFrame({ objects: [person('5')] });
+  assert.strictEqual(counted.length, 1);
+  tr.addFrame({ objects: [], deleted: ['5'] });
+  assert.strictEqual(gone.length, 1);
+  assert.strictEqual(gone[0].attrs.hat, true);
+  assert.strictEqual(Object.values(tr.history)[0].person, 1);
+  // A plate without a picture is reported when it leaves.
+  tr.addFrame({ objects: [{ id: '7', type: 'licenseplate', likelihood: 0.7, plate: { number: 'ABC123', country: 'SE' } }] });
+  tr.addFrame({ objects: [{ id: '7', type: 'licenseplate', likelihood: 0.7 }] });
+  tr.addFrame({ objects: [], deleted: ['7'] });
+  assert.deepStrictEqual(features[1].plate, { number: 'ABC123', country: 'SE' });
 });
 
 test('each object counted once, only after a confident classification in 2 frames', () => {

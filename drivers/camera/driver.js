@@ -53,7 +53,24 @@ class CameraDriver extends Homey.Driver {
       lingering: card('object_lingering'),
       unusual: card('unusual_activity'),
       summary: card('daily_summary'),
+      pir: card('pir_changed'),
+      blockedIp: card('ip_blocked'),
+      soundLimit: card('sound_limit'),
+      doorbell: card('doorbell'),
+      callState: card('call_state'),
+      pin: card('pin_entered'),
+      rfid: card('tag_shown'),
+      access: card('access_decided'),
+      presence: card('presence'),
+      face: card('face_seen'),
+      plate: card('plate_seen'),
+      occupancy: card('occupancy_changed'),
     };
+    this.triggers.pir.registerRunListener(async (args, state) => !args.state || args.state === 'any' || (args.state === 'on') === state.active);
+    this.triggers.soundLimit.registerRunListener(async (args, state) => (args.limit === 'above') === state.above);
+    this.triggers.access.registerRunListener(async (args, state) => !args.result || args.result === 'any' || (args.result === 'granted') === state.granted);
+    this.triggers.occupancy.registerRunListener(async (args, state) => !args.scenario || args.scenario.id === 'any' || args.scenario.id === state.topic);
+    this.triggers.occupancy.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.occupancyChoices(query));
     this.triggers.detected.registerRunListener(async (args, state) => typeMatches(args.type, state.category) && colorMatches(args.color, state.colors));
     this.triggers.passed.registerRunListener(async (args, state) => typeMatches(args.type, state.category)
       && (!args.direction || args.direction === 'any' || args.direction === state.direction) && colorMatches(args.color, state.colors));
@@ -73,6 +90,12 @@ class CameraDriver extends Homey.Driver {
     flow.getConditionCard('has_problem').registerRunListener(async (args) => args.device.getCapabilityValue('alarm_problem') === true);
     flow.getConditionCard('object_in_view').registerRunListener(async (args) => args.device.inViewCount(args.type) > 0);
     flow.getConditionCard('in_view_more').registerRunListener(async (args) => args.device.inViewCount(args.type) > Number(args.count));
+    flow.getConditionCard('pir_active').registerRunListener(async (args) => args.device.getCapabilityValue('axis_pir') === true);
+    flow.getConditionCard('privacy_on').registerRunListener(async (args) => args.device.getCapabilityValue('axis_privacy') === true);
+    flow.getConditionCard('call_active').registerRunListener(async (args) => args.device.getCapabilityValue('axis_call') === true);
+    const occupancyMore = flow.getConditionCard('occupancy_more');
+    occupancyMore.registerRunListener(async (args) => args.device.occupancyOf(args.scenario) > Number(args.count));
+    occupancyMore.registerArgumentAutocompleteListener('scenario', async (query, args) => (await args.device.occupancyChoices(query)).filter((c) => c.id !== 'any'));
     flow.getConditionCard('input_active').registerRunListener(async (args) => args.device.isInputActive(Number(args.port)));
 
     flow.getActionCard('make_summary').registerRunListener(async (args) => args.device.summaryTokens(args.period));
@@ -83,6 +106,24 @@ class CameraDriver extends Homey.Driver {
     flow.getActionCard('ptz_home').registerRunListener(async (args) => args.device.ptzHome());
     flow.getActionCard('set_light').registerRunListener(async (args) => args.device.setLight(args.state));
     flow.getActionCard('virtual_input').registerRunListener(async (args) => args.device.virtualInput(Number(args.port), args.action, Number(args.duration) || 0));
+    flow.getActionCard('privacy_set').registerRunListener(async (args) => args.device.setPrivacy(args.state === 'on'));
+    const playClip = flow.getActionCard('play_clip');
+    playClip.registerRunListener(async (args) => args.device.playClip(args.clip, args.volume === undefined || args.volume === null || args.volume === '' ? NaN : Number(args.volume)));
+    playClip.registerArgumentAutocompleteListener('clip', async (query, args) => args.device.clipChoices(query));
+    flow.getActionCard('stop_clip').registerRunListener(async (args) => args.device.stopClip());
+    const siren = flow.getActionCard('siren_start');
+    siren.registerRunListener(async (args) => args.device.startSiren(args.profile));
+    siren.registerArgumentAutocompleteListener('profile', async (query, args) => args.device.sirenChoices(query));
+    flow.getActionCard('siren_stop').registerRunListener(async (args) => args.device.stopSiren());
+    flow.getActionCard('restart_camera').registerRunListener(async (args) => args.device.restartCamera());
+    flow.getActionCard('show_text').registerRunListener(async (args) => args.device.showText(args.text, args.position));
+    flow.getActionCard('remove_text').registerRunListener(async (args) => args.device.removeText());
+    const reset = flow.getActionCard('reset_counts');
+    reset.registerRunListener(async (args) => args.device.resetCounts(args.scenario));
+    reset.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.aoaChoices(query, true));
+    const testAlarm = flow.getActionCard('test_scenario');
+    testAlarm.registerRunListener(async (args) => args.device.testScenario(args.scenario));
+    testAlarm.registerArgumentAutocompleteListener('scenario', async (query, args) => args.device.aoaChoices(query, false));
     flow.getActionCard('set_output').registerRunListener(async (args) => args.device.setOutput(Number(args.port), args.action, Number(args.duration) || 0));
   }
 

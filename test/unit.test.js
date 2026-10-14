@@ -76,8 +76,30 @@ test('event instances: parsed from GetEventInstances and turned into one filter'
   assert.ok(filter.includes('tns1:VideoSource/MotionAlarm'));
   assert.ok(!filter.includes('SystemReady'), 'topics the app does not use are left out');
   assert.deepStrictEqual(events.analyticsScenarios(list), [{
-    topic: 'CameraApplicationPlatform/ObjectAnalytics/Device1Scenario1', name: 'Driveway', counting: false, stateful: true, id: 'oa_d1s_1',
+    topic: 'CameraApplicationPlatform/ObjectAnalytics/Device1Scenario1', name: 'Driveway', counting: false, occupancy: false, stateful: true, id: 'oa_d1s_1', aoaId: '1',
   }]);
+});
+
+test('Object Analytics: crossline counting and occupancy scenarios and their numbers', () => {
+  const base = 'tnsaxis:CameraApplicationPlatform/ObjectAnalytics/Device1Scenario';
+  const list = [
+    { topic: `${base}3`, name: 'Object Analytics: Gate', data: ['scenario', 'resetTime', 'totalTruck', 'reason', 'totalCar', 'total', 'totalOtherVehicle', 'totalBus', 'totalBike', 'totalHuman'] },
+    { topic: `${base}4`, name: 'Object Analytics: Yard', data: ['scenario', 'bike', 'bus', 'human', 'total', 'truck', 'otherVehicle', 'car'] },
+  ];
+  const [gate, yard] = events.analyticsScenarios(list);
+  assert.deepStrictEqual([gate.counting, gate.occupancy, gate.aoaId], [true, false, '3']);
+  assert.deepStrictEqual([yard.counting, yard.occupancy, yard.aoaId], [false, true, '4']);
+  // The documented example payloads (AXIS Object Analytics counting data).
+  assert.deepStrictEqual(events.countsOf({
+    scenario: 'Scenario 1', resetTime: '2023-01-15T23:00:00Z', totalTruck: '1258', reason: 'car', totalCar: '18345', total: '19723', totalOtherVehicle: '0', totalBus: '120', totalBike: '0',
+  }, false), {
+    total: 19723, reason: 'car', human: 0, car: 18345, truck: 1258, bus: 120, bike: 0, otherVehicle: 0,
+  });
+  assert.deepStrictEqual(events.countsOf({
+    scenario: 'Scenario 1', bike: '0', bus: '1', human: '0', total: '5', truck: '1', otherVehicle: '0', car: '3',
+  }, true), {
+    total: 5, reason: '', human: 0, car: 3, truck: 1, bus: 1, bike: 0, otherVehicle: 0,
+  });
 });
 
 test('sdp: control URLs and parameter sets', () => {
@@ -163,4 +185,20 @@ test('installed camera apps from applications/list.cgi', async () => {
     ['AXIS Video Motion Detection', '4.5-1', 'Running', 'None'],
     ['AXIS Motion Guard', '2.4.1', 'Stopped', 'Valid'],
   ]);
+});
+
+test('scene description: the P3267 sample frame (getSupportedMetadata) is read completely', () => {
+  const { parseScene } = require('../lib/rtsp-events');
+  const xml = require('node:fs').readFileSync(require('node:path').join(__dirname, 'fixtures', 'asd-sample-p3267.xml'), 'utf8')
+    .replace(/SampleFrame/g, 'Frame');
+  const frame = parseScene(xml);
+  const byId = Object.fromEntries(frame.objects.map((o) => [o.id, o]));
+  assert.deepStrictEqual(frame.objects.map((o) => o.type), ['bus', 'car', 'human', 'humanface', 'licenseplate', 'bike', 'truck', 'othervehicle']);
+  assert.deepStrictEqual(byId['103'].upper, ['beige', 'black']);
+  assert.strictEqual(byId['103'].bag, true);
+  assert.strictEqual(byId['101'].bag, false);
+  assert.ok(byId['101'].vehicleColors.length > 0);
+  assert.ok(byId['104'].image);
+  assert.deepStrictEqual(frame.renames, [{ from: '38', to: '20' }]);
+  assert.deepStrictEqual(frame.deleted, ['1']);
 });

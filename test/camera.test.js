@@ -167,3 +167,73 @@ test('rtsp: a camera that refuses the bitrate cap streams without it', async () 
   up.close();
   cam.refuseBitrateCap = null;
 });
+
+test('vapix: privacy mode, sound clips, siren, restart, text, temperature, memory card, Object Analytics', async () => {
+  const c = client();
+  assert.strictEqual(await c.privacyMode(), false);
+  await c.setPrivacyMode(true);
+  assert.match(cam.lastMask, /action=add&name=Homey\+privacy\+mode&width=100\.0&height=100\.0&center=50\.0%2C50\.0/);
+  assert.strictEqual(await c.privacyMode(), true);
+  await c.setPrivacyMode(false);
+  assert.match(cam.lastMask, /action=remove/);
+  assert.strictEqual(await c.privacyMode(), false);
+
+  assert.deepStrictEqual(await c.mediaClips(), [{ id: 0, name: 'Warning' }, { id: 1, name: 'Dog barking' }]);
+  await c.playClip(1, { volume: 60 });
+  assert.strictEqual(cam.lastClip, '?action=play&clip=1&volume=60');
+
+  assert.deepStrictEqual((await c.sirenProfiles()).map((p) => p.name), ['Profile 1', 'Profile 2']);
+  await c.startSiren('Profile 1');
+  assert.deepStrictEqual(cam.lastSiren, { method: 'start', params: { profile: 'Profile 1' } });
+  await c.stopSiren();
+  assert.deepStrictEqual(cam.lastSiren.params, { all: ['siren', 'light'] });
+
+  await c.restart();
+  assert.strictEqual(cam.lastFirmware, 'reboot');
+
+  assert.strictEqual(await c.showText('Away mode', { position: 'bottomLeft' }), 7);
+  assert.strictEqual(cam.lastOverlay.method, 'addText');
+  assert.strictEqual(cam.lastOverlay.params.text, 'Away mode');
+  await c.showText('Home', { id: 7 });
+  assert.deepStrictEqual(cam.lastOverlay, { method: 'setText', params: { identity: 7, text: 'Home', position: 'topLeft' } });
+  await c.showText('Old camera', { dynamic: false });
+  assert.deepStrictEqual(cam.lastParamUpdate, { 'Image.I0.Text.TextEnabled': 'yes', 'Image.I0.Text.String': 'Old camera' });
+
+  const t = await c.temperatures();
+  assert.deepStrictEqual(t.sensors.map((x) => [x.name, x.celsius]), [['Main', 43.5], ['CPU', 50.44]]);
+  assert.deepStrictEqual(t.heaters, [{ id: 0, running: true }]);
+  const [sd] = await c.disks();
+  assert.deepStrictEqual([sd.id, sd.status, sd.totalKB, sd.freeKB], ['SD_DISK', 'OK', 31154688, 7788672]);
+
+  assert.strictEqual((await c.aoa('getAccumulatedCounts', { scenario: 3 })).total, 7);
+  assert.deepStrictEqual(cam.lastAoa.params, { scenario: 3 });
+  const [producer] = await c.metadataProducers();
+  assert.strictEqual(producer.name, 'AnalyticsSceneDescription');
+  await c.enableMetadataProducer('AnalyticsSceneDescription');
+  assert.deepStrictEqual(cam.lastProducers.params, { producers: [{ name: 'AnalyticsSceneDescription', videochannels: [{ channel: 1, enabled: true }] }] });
+  c.close();
+});
+
+test('vapix: privacy mode on cameras without privacymask.cgi uses the mask parameters', async () => {
+  cam.noPrivacyCgi = true;
+  const c = client();
+  try {
+    assert.strictEqual(await c.privacyMode(), false);
+    await c.setPrivacyMode(true, '1920x1080');
+    assert.deepStrictEqual(cam.maskParams, {
+      'Image.I0.Overlay.MaskWindows.M0.Enabled': 'yes',
+      'Image.I0.Overlay.MaskWindows.M0.XPos': '0',
+      'Image.I0.Overlay.MaskWindows.M0.YPos': '0',
+      'Image.I0.Overlay.MaskWindows.M0.Width': '1920',
+      'Image.I0.Overlay.MaskWindows.M0.Height': '1080',
+      'Image.I0.Overlay.MaskWindows.M0.Name': 'Homey privacy mode',
+    });
+    assert.strictEqual(await c.privacyMode(), true);
+    await c.setPrivacyMode(false);
+    assert.deepStrictEqual(cam.maskParams, {});
+    assert.strictEqual(await c.privacyMode(), false);
+  } finally {
+    cam.noPrivacyCgi = false;
+    c.close();
+  }
+});

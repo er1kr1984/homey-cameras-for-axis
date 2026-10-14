@@ -208,14 +208,30 @@ class AxisApp extends Homey.App {
         d.client.params('Properties').catch((e) => ({ error: e.message })),
         d.client.applications().catch(() => []),
       ]);
+      const tryJson = (path, method, params, v) => d.client.jsonApi(path, method, params, v).catch((e) => ({ error: e.message }));
+      const appNames = apps.map((a) => a.name);
+      const analytics = apis['analytics-metadata-config'] ? {
+        producers: await tryJson('/axis-cgi/analyticsmetadataconfig.cgi', 'listProducers', {}),
+        samples: await tryJson('/axis-cgi/analyticsmetadataconfig.cgi', 'getSupportedMetadata', {}),
+      } : null;
+      const objectAnalytics = appNames.includes('objectanalytics') ? {
+        versions: await tryJson('/local/objectanalytics/control.cgi', 'getSupportedVersions', undefined, '1.0'),
+        configuration: await tryJson('/local/objectanalytics/control.cgi', 'getConfiguration', undefined, '1.2'),
+        capabilities: await tryJson('/local/objectanalytics/control.cgi', 'getConfigurationCapabilities', undefined, '1.2'),
+      } : null;
       return {
         name: d.getName(),
+        analytics,
+        objectAnalytics,
+        appNames,
         model: d.getSetting('model'),
         firmware: d.getSetting('firmware'),
         apis,
         properties: props,
         apps: apps.map((a) => `${a.niceName} ${a.version} (${a.status})`),
-        events: (d.instances || []).map((i) => ({ topic: bare(i.topic), name: i.name, kind: classify(i.topic) || null })),
+        events: (d.instances || []).map((i) => ({
+          topic: bare(i.topic), name: i.name, kind: classify(i.topic) || null, stateful: i.stateful, data: i.data,
+        })),
       };
     }));
   }

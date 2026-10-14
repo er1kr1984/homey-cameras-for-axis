@@ -5,13 +5,15 @@ const Homey = require('homey');
 const { VapixClient, usableAddress } = require('../../lib/vapix');
 const { EventStream } = require('../../lib/event-stream');
 const { RtspEventStream } = require('../../lib/rtsp-events');
-const { Tracker, CATEGORIES, groupOf } = require('../../lib/tracker');
+const {
+  Tracker, CATEGORIES, groupOf, categoryOf,
+} = require('../../lib/tracker');
 const { Timeline } = require('../../lib/timeline');
 const { Activity } = require('../../lib/activity');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
-const FEATURES_VERSION = 3; // bump to re-read after an app update that uses more
+const FEATURES_VERSION = 4; // bump to re-read after an app update that uses more
 const SOUND_LEVEL_MS = 10 * 1000; // sound level reading updated at most this often
 const AUDIO_CLASS_GAP_MS = 10 * 1000; // per sound type
 const SCENE_CHANGE_SAMPLES = 2; // a new people/vehicle count must hold this many frames
@@ -32,6 +34,8 @@ const TRACK_SUMMARY_MS = 15 * 60 * 1000;
 const APPS_CHECK_MS = 30 * 60 * 1000; // installed camera apps (a new one can add events)
 const TRACK_TICK_MS = 5000; // objects that stopped being reported are let go
 const FLOW_USE_CHECK_MS = 60 * 1000; // how long "does a flow use this card" is remembered
+const STATUS_MS = 10 * 60 * 1000; // temperature, memory card, privacy mode, counts
+const CALL_ACTIVE = /calling|ringing|active|connected|conversation/i; // call states while a call is on
 const SNAPSHOT_REUSE_MS = 3000; // a scene picture this recent is reused for the next object
 const SNAPSHOT_SIZES = { small: 640, medium: 1280, full: Infinity };
 
@@ -58,6 +62,7 @@ class CameraDevice extends Homey.Device {
       onDwell: (obj) => this._onDwell(obj).catch(failed('dwell')),
       onGone: (obj) => this._onGone(obj),
       onUnusual: (u) => this._onUnusual(u),
+      onFeature: (f) => this._onFeature(f).catch(failed('face/plate')),
     });
     this.activity = new Activity({
       history: this.getStoreValue('motion_history') || {},
@@ -94,6 +99,8 @@ class CameraDevice extends Homey.Device {
     this.startTimer = this.homey.setTimeout(() => this._start(), this.driver.startDelay());
     this.healthTimer = this.homey.setInterval(() => this._healthCheck(), HEALTH_MS);
     this.appsTimer = this.homey.setInterval(() => this._checkApps().catch(this.error), APPS_CHECK_MS);
+    this.statusTimer = this.homey.setInterval(() => this._pollStatus().catch(this.error), STATUS_MS);
+    this._listenPrivacy();
   }
 
   diag(...args) {
@@ -140,6 +147,7 @@ class CameraDevice extends Homey.Device {
     this._startEvents();
     this._startScene();
     this._checkApps().catch(this.error);
+    this._pollStatus().catch(this.error);
   }
 
   // The apps installed on the camera (AXIS Motion Guard, Fence Guard, Object Analytics...).
@@ -215,8 +223,15 @@ class CameraDevice extends Homey.Device {
     if (has(/^Storage\/Recording$/)) wanted.set('axis_recording', null);
     if (has(/^Device\/Light\/Status$|^LightControl\/LightStatusChanged\/Status$/)) wanted.set('axis_ir', null);
     if (has(/^VideoSource\/LiveStreamAccessed$/)) wanted.set('axis_watched', null);
+    if (has(/^Device\/Sensor\/PIR$/)) wanted.set('axis_pir', null);
+    if (has(/^Call\/State$|^Device\/Intercom\/CallState$/)) wanted.set('axis_call', null);
+    const f = this.features || {};
+    if (f.privacyMask) wanted.set('axis_privacy', null);
+    if (f.temperature) wanted.set('measure_temperature', null);
+    if (f.disks && this.hasMemoryCard) wanted.set('axis_storage', null);
     for (const sc of events.analyticsScenarios(this.instances)) {
       if (sc.counting) wanted.set(`axis_count.${sc.id}`, { title: { en: sc.name } });
+      else if (sc.occupancy) wanted.set(`axis_occupancy.${sc.id}`, { title: { en: sc.name } });
       else if (sc.stateful) wanted.set(`alarm_generic.${sc.id}`, { title: { en: sc.name } });
     }
     if (this.getSetting('scene_counts')) {
@@ -226,7 +241,7 @@ class CameraDevice extends Homey.Device {
       const seen = new Set(Object.values(this.tracker.history).flatMap((b) => Object.keys(b)));
       for (const c of CATEGORIES) if (seen.has(c)) wanted.set(`axis_today.${c}`, { title: { en: this.homey.__(`objects.today.${c}`) } });
     }
-    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles)$|^axis_count\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
+    const dynamic = /^(measure_noise|axis_recording|axis_ir|axis_watched|axis_people|axis_vehicles|axis_pir|axis_call|axis_privacy|measure_temperature|axis_storage)$|^axis_count\.|^axis_occupancy\.|^axis_today\.|^alarm_generic\.(oa|mg|fg|lg|cl|an)_/;
     for (const cap of this.getCapabilities()) {
       if (dynamic.test(cap) && !wanted.has(cap)) await this.removeCapability(cap).catch(this.error);
     }
@@ -234,6 +249,7 @@ class CameraDevice extends Homey.Device {
       if (!this.hasCapability(cap)) await this.addCapability(cap).catch(this.error);
       if (options) await this.setCapabilityOptions(cap, options).catch(this.error);
     }
+    this._listenPrivacy();
   }
 
   _connectionProblem(err) {
@@ -325,9 +341,22 @@ class CameraDevice extends Homey.Device {
       await this.setCapabilityValue('alarm_tamper', true).catch(this.error);
       this.homey.clearTimeout(this.tamperTimer);
       this.tamperTimer = this.homey.setTimeout(() => this.setCapabilityValue('alarm_tamper', false).catch(this.error), TAMPER_HOLD_MS);
-      this._remember('tampering', this.homey.__('widget.tampering'));
-      this.driver.triggers.tampering.trigger(this, { image: await this._flowImage(this.driver.triggers.tampering) }).catch(this.error);
+      const reason = this.homey.__(`tampering.${/Shock/.test(topic) ? 'shock' : /GlobalSceneChange/.test(topic) ? 'scene' : 'covered'}`);
+      this._remember('tampering', `${this.homey.__('widget.tampering')}: ${reason}`);
+      this.driver.triggers.tampering.trigger(this, { reason, image: await this._flowImage(this.driver.triggers.tampering) }).catch(this.error);
     }
+    if (kind === 'pir' && state !== null) await this._pir(ev, state);
+    if (kind === 'blockedip') {
+      const address = String(details.address || '');
+      this._remember('security', this.homey.__('widget.blockedIp', { address }));
+      this.driver.triggers.blockedIp.trigger(this, { address }).catch(this.error);
+    }
+    if (kind === 'soundlimit' && state !== false) {
+      const above = /Above/.test(topic);
+      this._remember('sound', this.homey.__(above ? 'widget.soundAbove' : 'widget.soundBelow'));
+      this.driver.triggers.soundLimit.trigger(this, { above }, { above }).catch(this.error);
+    }
+    if (['call', 'pin', 'rfid', 'access', 'presence'].includes(kind)) await this._intercom(kind, topic, details);
     if (kind === 'daynight' && state !== null) {
       const night = !state;
       const before = this.getCapabilityValue('axis_night');
@@ -376,25 +405,58 @@ class CameraDevice extends Homey.Device {
   async _analytics(ev, topic, state, details) {
     const scenario = events.analyticsScenarios(this.instances).find((sc) => sc.topic === topic);
     const name = scenario ? scenario.name : topic.split('/').pop();
-    if (scenario && scenario.counting) {
-      const total = Number(details.total);
-      const humans = Number(details.totalHuman);
-      if (Number.isFinite(total)) await this.setCapabilityValue(`axis_count.${scenario.id}`, total).catch(this.error);
-      this._remember('counted', `${name}: ${Number.isFinite(total) ? total : '?'}`);
-      this.driver.triggers.counted.trigger(this, {
-        scenario: name, total: Number.isFinite(total) ? total : 0, humans: Number.isFinite(humans) ? humans : 0,
-      }, { topic }).catch(this.error);
+    if (scenario && (scenario.counting || scenario.occupancy)) {
+      await this._scenarioCounts(scenario, events.countsOf(details, scenario.occupancy), true);
       return;
     }
     if (scenario && state !== null) await this.setCapabilityValue(`alarm_generic.${scenario.id}`, state).catch(this.error);
     if (state === false) return;
-    const object = details.classTypes || details.objectClass || details.ObjectClass || '';
+    const object = String(details.classTypes || details.objectClass || details.ObjectClass || '');
+    const kind = String(details.scenarioType || '');
     this._remember('analytics', `${name}${object ? ` (${object})` : ''}`);
     this.driver.triggers.analytics.trigger(this, {
       scenario: name,
-      object: String(object),
+      object: this._className(object),
+      kind: this.homey.__(`scenarioTypes.${kind}`) || kind,
       image: await this._flowImage(this.driver.triggers.analytics),
     }, { topic }).catch(this.error);
+  }
+
+  // Numbers of a crossline counting or occupancy scenario -> capability and flows.
+  // fromEvent: false when read from the API (start-up), which doesn't run flows.
+  async _scenarioCounts(scenario, c, fromEvent) {
+    const cap = scenario.occupancy ? `axis_occupancy.${scenario.id}` : `axis_count.${scenario.id}`;
+    const before = this.getCapabilityValue(cap);
+    if (this.hasCapability(cap)) await this.setCapabilityValue(cap, c.total).catch(this.error);
+    if (!fromEvent) return;
+    const tokens = {
+      scenario: scenario.name,
+      total: c.total,
+      humans: c.human,
+      cars: c.car,
+      trucks: c.truck,
+      buses: c.bus,
+      bikes: c.bike,
+      others: c.otherVehicle,
+    };
+    if (scenario.occupancy) {
+      if (before === c.total) return;
+      this._remember('counted', `${scenario.name}: ${c.total}`);
+      this.driver.triggers.occupancy.trigger(this, { ...tokens, change: before === null ? 0 : c.total - before }, { topic: scenario.topic }).catch(this.error);
+      return;
+    }
+    const what = this._className(c.reason);
+    this._remember('counted', `${scenario.name}: ${c.total}${what ? ` (${what})` : ''}`);
+    this.driver.triggers.counted.trigger(this, { ...tokens, object: what }, { topic: scenario.topic, category: categoryOf(c.reason) }).catch(this.error);
+  }
+
+  // 'human' / 'car' / 'otherVehicle' / 'human,car' (Object Analytics) -> words.
+  _className(types) {
+    return String(types || '').split(',').map((t) => t.trim()).filter(Boolean).map((t) => {
+      if (/hardhat/i.test(t)) return this.homey.__('objects.noHardhat');
+      const c = categoryOf(t.replace(/^otherVehicle$/i, 'vehicle'));
+      return c && CATEGORIES.includes(c) ? this._objectName(c).toLowerCase() : t;
+    }).join(', ');
   }
 
   // Camera health: the problem alarm is on while any problem is active; pulses (an action
@@ -511,8 +573,22 @@ class CameraDevice extends Homey.Device {
     return String(this.getSetting(`dir_${direction}`) || '').trim() || this.homey.__(`directions.${direction}`);
   }
 
+  // Flow tokens for an object's details (Object Analytics attributes).
+  _attrTokens(attrs = {}) {
+    const list = (a) => (a || []).map((c) => this.homey.__(`colors.${c}`) || c).join(', ');
+    const speed = Number.isFinite(attrs.speed) ? Math.round(attrs.speed * 3.6) : 0;
+    return {
+      top: list(attrs.upper),
+      bottom: list(attrs.lower),
+      bag: Boolean(attrs.bag),
+      hat: Boolean(attrs.hat),
+      plate: attrs.plate && attrs.plate.number ? attrs.plate.number : '',
+      speed,
+    };
+  }
+
   async _onCounted({
-    id, category, type, colors, image, box,
+    id, category, type, colors, image, box, attrs,
   }) {
     const name = this._objectName(category);
     const colorText = (colors || []).join(', ');
@@ -536,7 +612,24 @@ class CameraDevice extends Homey.Device {
     if (Date.now() - (this.detectedAt[category] || 0) < DETECTED_GAP_MS) return;
     this.detectedAt[category] = Date.now();
     const token = await this._imageFromJpeg(jpeg);
-    this.driver.triggers.detected.trigger(this, { type: name, colors: colorText, image: token }, { category, colors }).catch(this.error);
+    this.driver.triggers.detected.trigger(this, {
+      type: name, colors: colorText, image: token, ...this._attrTokens(attrs),
+    }, { category, colors, attrs }).catch(this.error);
+  }
+
+  // A face or licence plate (parts of a person or vehicle; not counted). Needs a camera
+  // whose Object Analytics reports faces or plates.
+  async _onFeature({ kind, image, plate }) {
+    const card = kind === 'face' ? this.driver.triggers.face : this.driver.triggers.plate;
+    const number = plate && plate.number ? plate.number : '';
+    this.diag(`${kind} seen${number ? ` (${number})` : ''}${image ? ' with picture' : ''}`);
+    this._remember('object', this.homey.__(kind === 'face' ? 'widget.face' : 'widget.plate', { plate: number }));
+    if (Date.now() - (this.detectedAt[kind] || 0) < DETECTED_GAP_MS) return;
+    this.detectedAt[kind] = Date.now();
+    const jpeg = image ? Buffer.from(image, 'base64') : await this._snapshotJpeg(true);
+    const tokens = { image: await this._imageFromJpeg(jpeg) };
+    if (kind === 'plate') Object.assign(tokens, { plate: number, country: plate && plate.country ? plate.country : '' });
+    card.trigger(this, tokens).catch(this.error);
   }
 
   async _onObjectImage({ id, image }) {
@@ -546,7 +639,7 @@ class CameraDevice extends Homey.Device {
   // Still in view after a whole number of minutes: only build the flow tokens when a
   // flow waits for exactly this many minutes.
   async _onDwell({
-    id, category, minutes, colors,
+    id, category, minutes, colors, attrs,
   }) {
     const wanted = await this.driver.triggers.lingering.getArgumentValues(this).catch(() => []);
     if (!wanted.some((args) => Math.max(1, Math.round(Number(args.minutes) || 0)) === minutes)) return;
@@ -558,19 +651,19 @@ class CameraDevice extends Homey.Device {
     const jpeg = picture && picture.kind === 'crop' ? picture.jpeg : await this._snapshotJpeg(true);
     const image = await this._imageFromJpeg(jpeg);
     this.driver.triggers.lingering.trigger(this, {
-      type: name, minutes, colors: colors.join(', '), image,
+      type: name, minutes, colors: colors.join(', '), image, ...this._attrTokens(attrs),
     }, { category, minutes }).catch(this.error);
   }
 
   _onGone({
-    id, category, direction, seconds, colors,
+    id, category, direction, seconds, colors, attrs,
   }) {
-    this.timeline.finish(id, { direction, seconds });
+    this.timeline.finish(id, { direction, seconds, attrs });
     if (!direction) return;
     const name = this._objectName(category);
     this.driver.triggers.passed.trigger(this, {
-      type: name, direction: this.directionName(direction), seconds, colors: colors.join(', '),
-    }, { category, direction, colors }).catch(this.error);
+      type: name, direction: this.directionName(direction), seconds, colors: colors.join(', '), ...this._attrTokens(attrs),
+    }, { category, direction, colors, attrs }).catch(this.error);
   }
 
   _onUnusual({
@@ -747,8 +840,24 @@ class CameraDevice extends Homey.Device {
         ...e,
         name: this._objectName(e.category),
         direction: e.direction ? this.directionName(e.direction) : null,
+        details: this._detailsText(e.attrs),
       })),
     };
+  }
+
+  // "red top, blue trousers, bag" / "ABC123, 34 km/h" for the visitors widget.
+  _detailsText(a) {
+    if (!a) return '';
+    const __ = (k, v) => this.homey.__(k, v);
+    const colors = (list) => list.map((c) => __(`colors.${c}`) || c).join('/');
+    const parts = [];
+    if (a.upper) parts.push(__('details.top', { c: colors(a.upper) }));
+    if (a.lower) parts.push(__('details.bottom', { c: colors(a.lower) }));
+    if (a.hat) parts.push(__('details.hat'));
+    if (a.bag) parts.push(__('details.bag'));
+    if (a.plate) parts.push(a.plate);
+    if (a.speed) parts.push(__('details.speed', { n: Math.round(a.speed * 3.6) }));
+    return parts.join(', ');
   }
 
   async timelinePicture(key) {
@@ -773,6 +882,7 @@ class CameraDevice extends Homey.Device {
     this._stopScene();
     if (!this.getSetting('scene_counts') && !forWidget) return;
     this.diag(`starting the scene stream${forWidget ? ' for a widget' : ''}`);
+    if (!forWidget) this._ensureSceneProducer().catch(this.error);
     this.scene = new RtspEventStream({ camera: this.liveCamera(), mode: 'scene', log: (...args) => this.diag(...args) });
     this.sceneSamples = [];
     // Failures are logged and retried by the stream itself.
@@ -793,6 +903,20 @@ class CameraDevice extends Homey.Device {
     if (this.getSetting('scene_counts')) this.scene.frameIntervalMs = TRACK_FRAME_MS;
     this.scene.on('frame', (frame) => this._onSceneFrame(frame));
     this.scene.start();
+  }
+
+  // Counting needs Object Analytics' metadata (producer AnalyticsSceneDescription). If the
+  // camera has it switched off, switch it on (Analytics Metadata Producer Configuration).
+  async _ensureSceneProducer() {
+    if (!this.features || !this.features.metadataConfig) return;
+    const producers = await this.client.metadataProducers().catch(() => []);
+    const asd = producers.find((p) => p.name === 'AnalyticsSceneDescription');
+    if (!asd) return;
+    const off = (asd.videochannels || []).filter((c) => c.enabled === false);
+    if (!off.length) return;
+    this.diag('Object Analytics metadata was switched off on the camera; switching it on for counting');
+    await this.client.enableMetadataProducer('AnalyticsSceneDescription', off[0].channel || 1)
+      .catch((err) => this.diag(`could not switch on Object Analytics metadata: ${err.message}`));
   }
 
   _stopScene() {
@@ -856,6 +980,72 @@ class CameraDevice extends Homey.Device {
     if (kind === 'watched') this.setCapabilityValue('axis_watched', state === true).catch(this.error);
     if (kind === 'recording') this.setCapabilityValue('axis_recording', state === true).catch(this.error);
     if (kind === 'light') this.setCapabilityValue('axis_ir', state === true).catch(this.error);
+    if (kind === 'pir') {
+      this.setCapabilityValue('axis_pir', state === true).catch(this.error);
+      if (this.getSetting('pir_motion') !== false) {
+        if (state) this.motionSources.set(key, true);
+        else this.motionSources.delete(key);
+      }
+    }
+    if (kind === 'call') {
+      const callState = String(ev.data.CallState || '');
+      if (callState) this.setCapabilityValue('axis_call', CALL_ACTIVE.test(callState)).catch(this.error);
+    }
+  }
+
+  // Body heat sensor (PIR): its own alarm, and motion unless switched off in the settings.
+  async _pir(ev, state) {
+    const before = this.getCapabilityValue('axis_pir');
+    await this.setCapabilityValue('axis_pir', state).catch(this.error);
+    if (this.getSetting('pir_motion') !== false) this._setMotionSource(events.sourceKey(ev), state);
+    if (before === state) return;
+    if (state) this._remember('motion', this.homey.__('widget.pir'));
+    this.driver.triggers.pir.trigger(this, { active: state }, { active: state }).catch(this.error);
+  }
+
+  // Door stations: calls (doorbell), PIN codes, RFID tags, access decisions, presence.
+  async _intercom(kind, topic, d) {
+    if (kind === 'call') {
+      const callState = String(d.CallState || '');
+      if (!callState) return;
+      const active = CALL_ACTIVE.test(callState);
+      const before = this.callState;
+      this.callState = callState;
+      if (this.hasCapability('axis_call')) await this.setCapabilityValue('axis_call', active).catch(this.error);
+      if (before === callState) return;
+      this.driver.triggers.callState.trigger(this, { state: callState, active }).catch(this.error);
+      // A visitor pressed the call button: the door station starts calling out.
+      if (/^calling$/i.test(callState) && !/^calling$/i.test(before || '')) {
+        this._remember('call', this.homey.__('widget.doorbell'));
+        this.driver.triggers.doorbell.trigger(this, { image: await this._flowImage(this.driver.triggers.doorbell) }).catch(this.error);
+      }
+      return;
+    }
+    if (kind === 'pin') {
+      // The digits are only sent when the door station is set to send them ("sensitive" events).
+      const pin = String(d.KeyPin || '').replace(/#$/, '');
+      this._remember('access', this.homey.__('widget.pinEntered'));
+      this.driver.triggers.pin.trigger(this, { pin }).catch(this.error);
+      return;
+    }
+    if (kind === 'rfid') {
+      const card = String(d.CardNumber || d.UID || '');
+      this._remember('access', this.homey.__('widget.tagShown'));
+      this.driver.triggers.rfid.trigger(this, { card, type: String(d.TagType || '') }).catch(this.error);
+      return;
+    }
+    if (kind === 'access') {
+      const granted = /Granted/.test(topic);
+      const credential = String(d.CredentialId || '');
+      this._remember('access', this.homey.__(granted ? 'widget.accessGranted' : 'widget.accessDenied'));
+      this.driver.triggers.access.trigger(this, { granted, credential }, { granted }).catch(this.error);
+      return;
+    }
+    if (kind === 'presence') {
+      const present = Number(d.Presence) === 1;
+      if (present && !this.presence) this.driver.triggers.presence.trigger(this, {}).catch(this.error);
+      this.presence = present;
+    }
   }
 
   // Motion is on while any motion source is active. Sources without an on/off value
@@ -1081,8 +1271,165 @@ class CameraDevice extends Homey.Device {
   async scenarioChoices(query) {
     const q = String(query || '').toLowerCase();
     const list = [{ id: 'any', name: this.homey.__('flow.anyScenario') }]
-      .concat(events.analyticsScenarios(this.instances).filter((sc) => !sc.counting).map((sc) => ({ id: sc.topic, name: sc.name })));
+      .concat(events.analyticsScenarios(this.instances).filter((sc) => !sc.counting && !sc.occupancy).map((sc) => ({ id: sc.topic, name: sc.name })));
     return list.filter((s) => s.name.toLowerCase().includes(q));
+  }
+
+  // Number in an occupancy area now (its capability).
+  occupancyOf(arg) {
+    const topic = arg && arg.id ? arg.id : String(arg || '');
+    const sc = events.analyticsScenarios(this.instances).find((x) => x.topic === topic && x.occupancy);
+    return sc ? Number(this.getCapabilityValue(`axis_occupancy.${sc.id}`)) || 0 : 0;
+  }
+
+  async occupancyChoices(query) {
+    const q = String(query || '').toLowerCase();
+    return [{ id: 'any', name: this.homey.__('flow.anyScenario') }]
+      .concat(events.analyticsScenarios(this.instances).filter((sc) => sc.occupancy).map((sc) => ({ id: sc.topic, name: sc.name })))
+      .filter((sc) => sc.name.toLowerCase().includes(q));
+  }
+
+  // Object Analytics scenarios for actions (all kinds, or only counting ones).
+  async aoaChoices(query, countingOnly) {
+    const q = String(query || '').toLowerCase();
+    return events.analyticsScenarios(this.instances)
+      .filter((sc) => sc.aoaId && (!countingOnly || sc.counting))
+      .map((sc) => ({ id: sc.topic, name: sc.name }))
+      .filter((sc) => sc.name.toLowerCase().includes(q));
+  }
+
+  async clipChoices(query) {
+    const q = String(query || '').toLowerCase();
+    const clips = await this.client.mediaClips().catch(() => []);
+    return clips.map((c) => ({ id: String(c.id), name: c.name || `Clip ${c.id}` })).filter((c) => c.name.toLowerCase().includes(q));
+  }
+
+  async sirenChoices(query) {
+    const q = String(query || '').toLowerCase();
+    const profiles = await this.client.sirenProfiles().catch(() => []);
+    return profiles.map((p) => ({ id: p.name, name: p.name, description: p.description })).filter((p) => p.name.toLowerCase().includes(q));
+  }
+
+  // ---- Actions added from the VAPIX audit ----
+
+  async _act(what, fn) {
+    try {
+      return await fn();
+    } catch (err) {
+      this.app.diagError(this.tag, `${what} failed:`, err.message);
+      throw new Error(this.app.friendly(err));
+    }
+  }
+
+  // The privacy mode switch on the device tile (only on cameras that have privacy masks).
+  _listenPrivacy() {
+    if (this.privacyListening || !this.hasCapability('axis_privacy')) return;
+    this.privacyListening = true;
+    this.registerCapabilityListener('axis_privacy', (on) => this.setPrivacy(on));
+  }
+
+  async setPrivacy(on) {
+    const sizes = ((this.features && this.features.resolutions) || []).map((r) => r.split('x').map(Number)).filter((r) => r[0] && r[1]);
+    const largest = sizes.sort((a, b) => b[0] * b[1] - a[0] * a[1])[0];
+    await this._act('privacy mode', () => this.client.setPrivacyMode(on, largest ? largest.join('x') : undefined));
+    if (this.hasCapability('axis_privacy')) await this.setCapabilityValue('axis_privacy', on).catch(this.error);
+    this._remember('privacy', this.homey.__(on ? 'widget.privacyOn' : 'widget.privacyOff'));
+  }
+
+  async playClip(clip, volume) {
+    const id = Number(clip && clip.id !== undefined ? clip.id : clip);
+    const opts = this.features && this.features.clipVolume && Number.isFinite(volume) ? { volume } : {};
+    await this._act('play sound', () => this.client.playClip(id, opts));
+  }
+
+  async stopClip() {
+    await this._act('stop sound', () => this.client.stopClip());
+  }
+
+  async startSiren(profile) {
+    await this._act('siren and light', () => this.client.startSiren(profile && profile.id ? profile.id : String(profile)));
+  }
+
+  async stopSiren() {
+    await this._act('siren and light', () => this.client.stopSiren());
+  }
+
+  async restartCamera() {
+    this.diag('restarting the camera (flow)');
+    await this._act('restart', () => this.client.restart());
+  }
+
+  // Text on the picture; the overlay id is kept to change or remove it later.
+  async showText(text, position) {
+    const dynamic = Boolean(this.features && this.features.dynamicOverlay);
+    const id = await this._act('text on the picture', () => this.client.showText(String(text || ''), {
+      position: position || 'topLeft', id: this.getStoreValue('overlay_id'), dynamic,
+    }));
+    await this.setStoreValue('overlay_id', id).catch(this.error);
+  }
+
+  async removeText() {
+    const dynamic = Boolean(this.features && this.features.dynamicOverlay);
+    await this._act('remove text', () => this.client.removeText({ id: this.getStoreValue('overlay_id'), dynamic }));
+    await this.setStoreValue('overlay_id', null).catch(this.error);
+  }
+
+  _aoaScenario(arg) {
+    const topic = arg && arg.id ? arg.id : String(arg || '');
+    const sc = events.analyticsScenarios(this.instances).find((x) => x.topic === topic);
+    if (!sc || !sc.aoaId) throw new Error(this.homey.__('errors.no_scenario'));
+    return sc;
+  }
+
+  async resetCounts(arg) {
+    const sc = this._aoaScenario(arg);
+    await this._act('reset counts', () => this.client.aoa('resetAccumulatedCounts', { scenario: Number(sc.aoaId) }));
+    await this._scenarioCounts(sc, { total: 0, human: 0, car: 0, truck: 0, bus: 0, bike: 0, otherVehicle: 0, reason: '' }, false);
+  }
+
+  async testScenario(arg) {
+    const sc = this._aoaScenario(arg);
+    await this._act('test alarm', () => this.client.aoa('sendAlarmEvent', { scenario: Number(sc.aoaId) }));
+  }
+
+  // Every STATUS_MS: camera temperature, memory card, privacy mode and the Object
+  // Analytics counts (also right after start, so the numbers are right at once).
+  async _pollStatus() {
+    const f = this.features || {};
+    if (f.temperature) {
+      const t = await this.client.temperatures().catch(() => null);
+      const main = t && (t.sensors.find((x) => /main|system|housing/i.test(x.name || '')) || t.sensors[0]);
+      if (main && this.hasCapability('measure_temperature')) await this.setCapabilityValue('measure_temperature', main.celsius).catch(this.error);
+    }
+    if (f.disks) {
+      const disks = await this.client.disks().catch(() => null);
+      const sd = disks && disks.find((d) => d.id === 'SD_DISK' && d.totalKB > 0);
+      const had = this.hasMemoryCard;
+      this.hasMemoryCard = Boolean(sd);
+      if (had !== this.hasMemoryCard) await this._syncCapabilities();
+      if (sd && this.hasCapability('axis_storage')) {
+        await this.setCapabilityValue('axis_storage', Math.round(((sd.totalKB - sd.freeKB) / sd.totalKB) * 100)).catch(this.error);
+      }
+    }
+    if (f.privacyMask && this.hasCapability('axis_privacy')) {
+      const on = await this.client.privacyMode().catch((err) => {
+        if (!this.privacyLogged) this.diag(`could not read privacy mode: ${err.code || ''} ${err.message}`);
+        this.privacyLogged = true;
+        return null;
+      });
+      if (on !== null) await this.setCapabilityValue('axis_privacy', on).catch(this.error);
+    }
+    for (const sc of events.analyticsScenarios(this.instances).filter((x) => x.aoaId && (x.counting || x.occupancy))) {
+      const data = await this.client.aoa(sc.occupancy ? 'getOccupancy' : 'getAccumulatedCounts', { scenario: Number(sc.aoaId) }).catch(() => null);
+      if (data) await this._scenarioCounts(sc, events.countsOf(sc.occupancy ? data : this._countsAsEvent(data), sc.occupancy), false);
+    }
+  }
+
+  // getAccumulatedCounts answers { total, human, car, ... }; events use totalHuman etc.
+  _countsAsEvent(data) {
+    const out = { total: data.total };
+    for (const c of events.COUNT_CLASSES) out[`total${c[0].toUpperCase()}${c.slice(1)}`] = data[c];
+    return out;
   }
 
   // ---- Homey lifecycle ----
@@ -1173,6 +1520,7 @@ class CameraDevice extends Homey.Device {
 
   _stop() {
     this.homey.clearTimeout(this.startTimer);
+    this.homey.clearInterval(this.statusTimer);
     this._saveTraffic();
     this.homey.clearInterval(this.trafficTimer);
     this.homey.clearInterval(this.todayTimer);

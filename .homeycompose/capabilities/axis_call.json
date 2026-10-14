@@ -1,0 +1,10 @@
+{
+  "type": "boolean",
+  "title": { "en": "Call in progress" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "insightsTitleTrue": { "en": "Call started" },
+  "insightsTitleFalse": { "en": "Call ended" }
+}

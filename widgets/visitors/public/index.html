@@ -102,7 +102,7 @@
           const item = el('div', 'item');
           const pic = el('div', 'pic');
           pic.append(el('span', 'time', clock(e.at)));
-          const colors = e.colors.join(', ');
+          const colors = e.details || e.colors.join(', ');
           const went = [e.direction, e.seconds ? stay(e.seconds) : ''].filter(Boolean).join(' · ');
           item.append(pic, el('div', 'name', `${e.name}${colors ? ` · ${colors}` : ''}`), el('div', 'meta', went || ' '));
           item.title = [e.name, colors, went].filter(Boolean).join(' · ');
