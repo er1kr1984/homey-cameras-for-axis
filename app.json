@@ -3513,7 +3513,7 @@
     }
   ],
   "widgets": {
-    "analytics": {
+    "camera_analytics": {
       "name": {
         "en": "Camera analytics"
       },
@@ -3587,7 +3587,21 @@
           "path": "/offer"
         }
       },
-      "id": "analytics"
+      "id": "camera_analytics"
+    },
+    "camera_overview": {
+      "name": {
+        "en": "Analytics overview"
+      },
+      "height": 300,
+      "settings": [],
+      "api": {
+        "overview": {
+          "method": "GET",
+          "path": "/overview"
+        }
+      },
+      "id": "camera_overview"
     },
     "heatmap": {
       "name": {
@@ -3641,20 +3655,6 @@
         }
       },
       "id": "heatmap"
-    },
-    "overview": {
-      "name": {
-        "en": "Analytics overview"
-      },
-      "height": 300,
-      "settings": [],
-      "api": {
-        "overview": {
-          "method": "GET",
-          "path": "/overview"
-        }
-      },
-      "id": "overview"
     },
     "traffic": {
       "name": {

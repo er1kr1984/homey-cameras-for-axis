@@ -80,7 +80,7 @@ class AxisApp extends Homey.App {
         .map((d) => ({ id: d.getId(), name: d.getName(), description: d.getSetting('model') || '' }))
         .filter((c) => c.name.toLowerCase().includes(q));
     };
-    for (const id of ['analytics', 'traffic', 'visitors', 'heatmap']) {
+    for (const id of ['camera_analytics', 'traffic', 'visitors', 'heatmap']) {
       this.homey.dashboards.getWidget(id).registerSettingAutocompleteListener('camera', cameras);
     }
   }
