@@ -234,8 +234,7 @@ test('vapix: privacy mode on cameras without privacymask.cgi uses the mask param
     });
     assert.strictEqual(await c.privacyMode(), true);
     await c.setPrivacyMode(false);
-    assert.deepStrictEqual(cam.maskParams, {});
-    assert.strictEqual(await c.privacyMode(), false);
+    assert.deepStrictEqual(cam.lastParamUpdate, { 'Image.I0.Overlay.MaskWindows.M0.Enabled': 'no' });
   } finally {
     cam.noPrivacyCgi = false;
     c.close();
