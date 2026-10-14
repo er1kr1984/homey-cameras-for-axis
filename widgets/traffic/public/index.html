@@ -17,6 +17,7 @@
       --bicycle: #2fb86a;
       --motorcycle: #ff7a45;
       --vehicle: #9aa0a8;
+      --motion: #8e6bf5;
     }
     html, body { margin: 0; background: transparent; color: var(--text); font: 13px/1.35 var(--font); }
     body { padding: 10px 12px 8px; }
@@ -51,7 +52,8 @@
       const settings = Homey.getSettings() || {};
       const camera = settings.camera;
       const period = ['week', 'month'].includes(settings.period) ? settings.period : 'day';
-      const ORDER = ['person', 'car', 'truck', 'bus', 'bicycle', 'motorcycle', 'vehicle'];
+      const ORDER = ['person', 'car', 'truck', 'bus', 'bicycle', 'motorcycle', 'vehicle', 'motion'];
+      const show = ['objects', 'motion'].includes(settings.show) ? settings.show : 'auto';
       const REFRESH_MS = 60000;
       const t = (k, v) => Homey.__(k, v);
       const $ = (id) => document.getElementById(id);
@@ -92,6 +94,12 @@
           s.append(sw, b, document.createTextNode(t(`objects.many.${c}`)));
           totals.append(s);
         }
+        if (data.motionChart && data.minutes) {
+          const s = document.createElement('span');
+          s.className = 'total';
+          s.textContent = t('widget.motionMinutes', { n: data.minutes });
+          totals.append(s);
+        }
         // Which way they went: "People: 12 towards the house · 9 away from the house"
         const dirs = $('dirs');
         dirs.textContent = '';
@@ -115,7 +123,7 @@
           chart.hidden = true;
           $('legend').hidden = true;
           empty.hidden = false;
-          empty.textContent = data.tracking ? t('widget.nothingCounted') : t('widget.notTracking');
+          empty.textContent = data.motionChart ? t('widget.noMotionYet') : data.tracking ? t('widget.nothingCounted') : t('widget.notTracking');
           fit();
           return;
         }
@@ -174,7 +182,7 @@
           return;
         }
         try {
-          draw(await Homey.api('POST', '/traffic', { camera, period }));
+          draw(await Homey.api('POST', '/traffic', { camera, period, show }));
         } catch (err) {
           $('empty').hidden = false;
           $('empty').textContent = (err && err.message) || String(err);

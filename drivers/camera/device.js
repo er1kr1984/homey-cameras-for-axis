@@ -7,6 +7,7 @@ const { EventStream } = require('../../lib/event-stream');
 const { RtspEventStream } = require('../../lib/rtsp-events');
 const { Tracker, CATEGORIES, groupOf } = require('../../lib/tracker');
 const { Timeline } = require('../../lib/timeline');
+const { Activity } = require('../../lib/activity');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
@@ -28,6 +29,7 @@ const MAX_VIEWERS = 4;
 const AUDIO_TRIGGER_GAP_MS = 30 * 1000; // sound detection can flip every second
 const EVENT_LOG_GAP_MS = 60 * 1000; // the same event is logged at most this often
 const TRACK_SUMMARY_MS = 15 * 60 * 1000;
+const APPS_CHECK_MS = 30 * 60 * 1000; // installed camera apps (a new one can add events)
 const TRACK_TICK_MS = 5000; // objects that stopped being reported are let go
 const SNAPSHOT_REUSE_MS = 3000; // a scene picture this recent is reused for the next object
 const SNAPSHOT_SIZES = { small: 640, medium: 1280, full: Infinity };
@@ -56,6 +58,11 @@ class CameraDevice extends Homey.Device {
       onGone: (obj) => this._onGone(obj),
       onUnusual: (u) => this._onUnusual(u),
     });
+    this.activity = new Activity({
+      history: this.getStoreValue('motion_history') || {},
+      timeZone: this.homey.clock.getTimezone(),
+      onUnusual: (u) => this._onUnusual({ ...u, group: 'motion' }),
+    });
     this.timeline = new Timeline({
       dir: path.join('/userdata', 'timeline', String(this.getData().id).replace(/[^\w-]/g, '')),
       entries: this.getStoreValue('timeline') || [],
@@ -69,7 +76,7 @@ class CameraDevice extends Homey.Device {
     this.trackSummaryTimer = this.homey.setInterval(() => this._trackSummary(), TRACK_SUMMARY_MS);
     this.features = this.getStoreValue('features') || null;
     this.instances = this.getStoreValue('event_instances') || [];
-    for (const cap of ['alarm_motion', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
+    for (const cap of ['alarm_motion', 'axis_motion_today', 'alarm_tamper', 'axis_night', 'alarm_problem', 'axis_problem']) {
       if (!this.hasCapability(cap)) await this.addCapability(cap).catch(this.error);
     }
     // Alarms held by a timer don't survive a restart.
@@ -79,6 +86,7 @@ class CameraDevice extends Homey.Device {
     await this._attachVideo().catch((err) => this.error('video:', err.message));
     this._start();
     this.healthTimer = this.homey.setInterval(() => this._healthCheck(), HEALTH_MS);
+    this.appsTimer = this.homey.setInterval(() => this._checkApps().catch(this.error), APPS_CHECK_MS);
   }
 
   diag(...args) {
@@ -124,6 +132,34 @@ class CameraDevice extends Homey.Device {
     }
     this._startEvents();
     this._startScene();
+    this._checkApps().catch(this.error);
+  }
+
+  // The apps installed on the camera (AXIS Motion Guard, Fence Guard, Object Analytics...).
+  // When they change, read the camera's events again so a new app's alarms show up.
+  async _checkApps() {
+    let apps;
+    try {
+      apps = await this.client.applications();
+    } catch (err) {
+      if (!this.appsLogged) this.diag(`could not list the camera's apps: ${err.code || err.message}`);
+      this.appsLogged = true;
+      return;
+    }
+    const running = apps.filter((a) => /running/i.test(a.status));
+    const sig = running.map((a) => `${a.name}@${a.version}`).sort().join(',');
+    const old = this.getStoreValue('apps_sig');
+    if (!this.appsLogged || sig !== old) {
+      this.diag(`camera apps: ${apps.map((a) => `${a.niceName} ${a.version} (${a.status}${a.license && a.license !== 'None' ? `, licence ${a.license}` : ''})`).join('; ') || 'none'}`);
+    }
+    this.appsLogged = true;
+    this.apps = apps;
+    if (sig === old) return;
+    await this.setStoreValue('apps_sig', sig);
+    if (old === null || old === undefined) return; // first look: nothing to compare with
+    this.diag('camera apps changed: reading the camera\'s events again');
+    await this._loadFeatures(true);
+    this._startEvents();
   }
 
   async _loadFeatures(force) {
@@ -423,6 +459,7 @@ class CameraDevice extends Homey.Device {
       recording: cap('axis_recording'),
       people: cap('axis_people'),
       vehicles: cap('axis_vehicles'),
+      motionToday: this.activity.today(),
       scenarios: scenarios.filter((sc) => !sc.counting && sc.stateful)
         .map((sc) => ({ name: sc.name, active: cap(`alarm_generic.${sc.id}`) === true })),
       counters: scenarios.filter((sc) => sc.counting)
@@ -532,7 +569,7 @@ class CameraDevice extends Homey.Device {
   _onUnusual({
     group, count, usual, hour,
   }) {
-    const what = this.homey.__(`widget.${group}`);
+    const what = this.homey.__(group === 'motion' ? 'widget.motionWord' : `widget.${group}`);
     this.diag(`unusual: ${count} ${what} between ${hour}:00 and ${hour}:59, usually ${usual}`);
     this._remember('unusual', this.homey.__('widget.unusual', { n: count, what }));
     this.driver.triggers.unusual.trigger(this, {
@@ -543,25 +580,44 @@ class CameraDevice extends Homey.Device {
   // A plain sentence: "Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9). Longest stay: a car, 14 min."
   summaryText(period = 'today') {
     const s = this.tracker.summary(period);
+    const m = this.activity.summary(period);
     const __ = (k, v) => this.homey.__(k, v);
     const label = __(`summary.${period}`);
+    const motionText = m.count ? __('summary.motion', { n: m.count, time: this._duration(m.seconds) }) : __('summary.noMotion');
+    // Without counting (cameras without Object Analytics): motion only.
+    if (!this.getSetting('scene_counts') && !Object.keys(s.totals).length) {
+      let text = `${label}: ${motionText}.`;
+      if (m.busiest) text += ` ${__('summary.busiest', { hour: `${m.busiest.hour}:00`, n: m.busiest.count })}`;
+      return {
+        text, ...s, motion: m, busiest: m.busiest,
+      };
+    }
     const parts = CATEGORIES.filter((c) => s.totals[c])
       .map((c) => `${s.totals[c]} ${__(`objects.${s.totals[c] === 1 ? 'one' : 'many'}.${c}`).toLowerCase()}`);
-    if (!parts.length) return { text: __('summary.nothing', { label }), ...s };
+    if (!parts.length) return { text: `${__('summary.nothing', { label })} ${__('summary.motionAlso', { text: motionText })}`, ...s, motion: m };
     const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ${__('summary.and')} ${parts[parts.length - 1]}` : parts[0];
     let text = `${label}: ${list}.`;
     if (s.busiest) text += ` ${__('summary.busiest', { hour: `${s.busiest.hour}:00`, n: s.busiest.count })}`;
     if (s.longest && s.longest.seconds >= 60) {
       text += ` ${__('summary.longest', { name: this._objectName(s.longest.category).toLowerCase(), n: Math.round(s.longest.seconds / 60) })}`;
     }
-    return { text, ...s };
+    text += ` ${__('summary.motionAlso', { text: motionText })}`;
+    return { text, ...s, motion: m };
+  }
+
+  // 3 h 10 min / 25 min / 40 s
+  _duration(seconds) {
+    if (seconds < 60) return this.homey.__('widget.seconds', { n: seconds });
+    const min = Math.round(seconds / 60);
+    if (min < 60) return this.homey.__('widget.minutes', { n: min });
+    return this.homey.__('widget.hoursMinutes', { h: Math.floor(min / 60), m: min % 60 });
   }
 
   summaryTokens(period) {
     const s = this.summaryText(period);
     const sum = (group) => CATEGORIES.reduce((n, c) => n + (groupOf(c) === group ? s.totals[c] || 0 : 0), 0);
     return {
-      summary: s.text, people: sum('people'), vehicles: sum('vehicles'), busiest: s.busiest ? `${s.busiest.hour}:00` : '',
+      summary: s.text, people: sum('people'), vehicles: sum('vehicles'), motion: s.motion.count, busiest: s.busiest ? `${s.busiest.hour}:00` : '',
     };
   }
 
@@ -575,7 +631,6 @@ class CameraDevice extends Homey.Device {
   }
 
   async _summaryTime() {
-    if (!this.getSetting('scene_counts')) return;
     const time = new Intl.DateTimeFormat('en-GB', {
       timeZone: this.homey.clock.getTimezone(), hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     }).format(new Date());
@@ -614,6 +669,8 @@ class CameraDevice extends Homey.Device {
   }
 
   async _updateToday() {
+    const motion = this.activity.today();
+    if (this.getCapabilityValue('axis_motion_today') !== motion) await this.setCapabilityValue('axis_motion_today', motion).catch(this.error);
     const today = this.tracker.today();
     for (const c of CATEGORIES) {
       const cap = `axis_today.${c}`;
@@ -629,13 +686,24 @@ class CameraDevice extends Homey.Device {
       this.setStoreValue('traffic', this.tracker.history).catch(this.error);
       this.setStoreValue('heat', this.tracker.heat).catch(this.error);
     }
+    if (this.activity.dirty) {
+      this.activity.dirty = false;
+      this.setStoreValue('motion_history', this.activity.history).catch(this.error);
+    }
     if (this.timeline.dirty) {
       this.timeline.dirty = false;
       this.setStoreValue('timeline', this.timeline.entries).catch(this.error);
     }
   }
 
-  trafficSeries(period) {
+  // show: 'auto' (people and vehicles when counting, else motion), 'objects' or 'motion'.
+  trafficSeries(period, show = 'auto') {
+    const motion = show === 'motion' || (show === 'auto' && !this.getSetting('scene_counts'));
+    if (motion) {
+      return {
+        name: this.getName(), tracking: true, motionChart: true, ...this.activity.series(period),
+      };
+    }
     const data = this.tracker.series(period);
     const directions = {};
     for (const [c, d] of Object.entries(data.directions)) {
@@ -781,6 +849,8 @@ class CameraDevice extends Homey.Device {
       this.motionOffTimer = null;
       if (this.getCapabilityValue('alarm_motion') !== true) {
         this.setCapabilityValue('alarm_motion', true).catch(this.error);
+        this.activity.start();
+        this.setCapabilityValue('axis_motion_today', this.activity.today()).catch(this.error);
         this._remember('motion', this.homey.__('widget.motionStarted'));
         this._eventImage().then((image) => this.driver.triggers.motionStarted.trigger(this, { image })).catch(this.error);
       }
@@ -790,6 +860,7 @@ class CameraDevice extends Homey.Device {
         this.motionOffTimer = null;
         if (this.motionSources.size) return;
         this.setCapabilityValue('alarm_motion', false).catch(this.error);
+        this.activity.stop();
         this._remember('motion_end', this.homey.__('widget.motionStopped'));
         this.driver.triggers.motionStopped.trigger(this, {}).catch(this.error);
       }, holdMs);
@@ -1058,6 +1129,7 @@ class CameraDevice extends Homey.Device {
     this.homey.clearInterval(this.trackTickTimer);
     this.homey.clearTimeout(this.minuteTimer);
     this.homey.clearInterval(this.healthTimer);
+    this.homey.clearInterval(this.appsTimer);
     this.homey.clearTimeout(this.tamperTimer);
     this.homey.clearTimeout(this.motionOffTimer);
     if (this.stream) this.stream.stop();

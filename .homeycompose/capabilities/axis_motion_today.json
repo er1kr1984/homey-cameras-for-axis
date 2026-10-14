@@ -1,0 +1,15 @@
+{
+  "type": "number",
+  "title": {
+    "en": "Motion today"
+  },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "insights": true,
+  "decimals": 0,
+  "units": {
+    "en": "×"
+  },
+  "icon": "/assets/icon.svg"
+}

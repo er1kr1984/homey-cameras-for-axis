@@ -1222,7 +1222,7 @@
           "en": "More [[group]] than usual"
         },
         "hint": {
-          "en": "Runs when the camera sees clearly more people or vehicles than usual for this hour, or any at an hour when there is normally nobody (for example 03:00). It learns what is usual from the counts, so it only starts after a week of counting. At most once an hour. Needs 'Track and count people and vehicles' on in the device settings."
+          "en": "Runs when the camera sees clearly more than usual for this hour, or anything at an hour when there is normally nothing (for example 03:00). It learns what is usual by itself, so it only starts after a week. At most once an hour. Motion works on every camera; people and vehicles need 'Track and count people and vehicles' on in the device settings."
         },
         "args": [
           {
@@ -1240,7 +1240,7 @@
               {
                 "id": "any",
                 "label": {
-                  "en": "people or vehicles"
+                  "en": "activity (anything)"
                 }
               },
               {
@@ -1254,6 +1254,12 @@
                 "label": {
                   "en": "vehicles"
                 }
+              },
+              {
+                "id": "motion",
+                "label": {
+                  "en": "motion"
+                }
               }
             ]
           }
@@ -1266,7 +1272,7 @@
               "en": "What"
             },
             "example": {
-              "en": "People"
+              "en": "Motion"
             }
           },
           {
@@ -1306,7 +1312,7 @@
           "en": "Summary of [[period]] at [[time]]"
         },
         "hint": {
-          "en": "Runs every day at the time you pick, with a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' Use the Summary tag in a notification or have a speaker read it out. Needs 'Track and count people and vehicles' on in the device settings."
+          "en": "Runs every day at the time you pick, with a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' Use the Summary tag in a notification or have a speaker read it out. Cameras without 'Track and count people and vehicles' give a motion summary instead."
         },
         "args": [
           {
@@ -1369,6 +1375,14 @@
               "en": "Vehicles"
             },
             "example": 15
+          },
+          {
+            "name": "motion",
+            "type": "number",
+            "title": {
+              "en": "Times motion"
+            },
+            "example": 42
           },
           {
             "name": "busiest",
@@ -1895,7 +1909,7 @@
           "en": "Make a traffic summary of [[period]]"
         },
         "hint": {
-          "en": "Gives a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' to use in the next cards, for example in a notification. Works in Advanced Flows. Needs 'Track and count people and vehicles' on in the device settings."
+          "en": "Gives a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' to use in the next cards, for example in a notification. Works in Advanced Flows. Cameras without 'Track and count people and vehicles' give a motion summary instead."
         },
         "args": [
           {
@@ -1957,6 +1971,14 @@
               "en": "Vehicles"
             },
             "example": 15
+          },
+          {
+            "name": "motion",
+            "type": "number",
+            "title": {
+              "en": "Times motion"
+            },
+            "example": 42
           },
           {
             "name": "busiest",
@@ -2459,7 +2481,7 @@
     },
     "traffic": {
       "name": {
-        "en": "Traffic and visitors"
+        "en": "Traffic and activity"
       },
       "height": 300,
       "settings": [
@@ -2470,8 +2492,36 @@
             "en": "Camera"
           },
           "hint": {
-            "en": "A camera with 'Track and count people and vehicles' switched on."
+            "en": "Any camera. Cameras with 'Track and count people and vehicles' on show people and vehicles; the others show motion."
           }
+        },
+        {
+          "id": "show",
+          "type": "dropdown",
+          "title": {
+            "en": "Show"
+          },
+          "value": "auto",
+          "values": [
+            {
+              "id": "auto",
+              "title": {
+                "en": "People and vehicles if counted, else motion"
+              }
+            },
+            {
+              "id": "objects",
+              "title": {
+                "en": "People and vehicles"
+              }
+            },
+            {
+              "id": "motion",
+              "title": {
+                "en": "Motion"
+              }
+            }
+          ]
         },
         {
           "id": "period",
@@ -2624,6 +2674,21 @@
       "insightsTitleFalse": {
         "en": "Light switched off"
       }
+    },
+    "axis_motion_today": {
+      "type": "number",
+      "title": {
+        "en": "Motion today"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "insights": true,
+      "decimals": 0,
+      "units": {
+        "en": "×"
+      },
+      "icon": "/assets/icon.svg"
     },
     "axis_night": {
       "type": "boolean",

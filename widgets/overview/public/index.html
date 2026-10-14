@@ -74,6 +74,7 @@
           };
           if (c.people !== null && c.people !== undefined) num(c.people, t(c.people === 1 ? 'person' : 'people'));
           if (c.vehicles !== null && c.vehicles !== undefined) num(c.vehicles, t(c.vehicles === 1 ? 'vehicle' : 'vehicles'));
+          if (c.motionToday) num(c.motionToday, t('motionToday'));
           if (typeof c.noise === 'number') num(Math.round(c.noise), 'dB');
           for (const k of c.counters) if (k.total !== null && k.total !== undefined) num(k.total, k.name);
           box.append(row);

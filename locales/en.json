@@ -102,7 +102,12 @@
     "heatAll": "Where people and vehicles go",
     "heatEmpty": "No paths yet. They appear here as people and vehicles pass.",
     "seconds": "__n__ s",
-    "minutes": "__n__ min"
+    "minutes": "__n__ min",
+    "motionWord": "Motion",
+    "hoursMinutes": "__h__ h __m__ min",
+    "noMotionYet": "No motion yet.",
+    "motionToday": "motion today",
+    "motionMinutes": "__n__ min of motion"
   },
   "objects": {
     "one": {
@@ -112,7 +117,8 @@
       "bus": "Bus",
       "bicycle": "Bicycle",
       "motorcycle": "Motorbike",
-      "vehicle": "Other vehicle"
+      "vehicle": "Other vehicle",
+      "motion": "Motion"
     },
     "many": {
       "person": "People",
@@ -121,7 +127,8 @@
       "bus": "Buses",
       "bicycle": "Bicycles",
       "motorcycle": "Motorbikes",
-      "vehicle": "Other vehicles"
+      "vehicle": "Other vehicles",
+      "motion": "times motion"
     },
     "today": {
       "person": "People today",
@@ -147,6 +154,9 @@
     "and": "and",
     "nothing": "__label__: nothing counted.",
     "busiest": "Busiest hour __hour__ (__n__).",
-    "longest": "Longest stay: a __name__, __n__ min."
+    "longest": "Longest stay: a __name__, __n__ min.",
+    "motion": "motion __n__ times (__time__ in total)",
+    "noMotion": "no motion",
+    "motionAlso": "Also __text__."
   }
 }

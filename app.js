@@ -77,8 +77,8 @@ class AxisApp extends Homey.App {
     }
   }
 
-  widgetTraffic({ camera, period }) {
-    return this._widgetCamera(camera).trafficSeries(['week', 'month'].includes(period) ? period : 'day');
+  widgetTraffic({ camera, period, show }) {
+    return this._widgetCamera(camera).trafficSeries(['week', 'month'].includes(period) ? period : 'day', ['objects', 'motion'].includes(show) ? show : 'auto');
   }
 
   widgetTimeline({ camera, kind, limit }) {

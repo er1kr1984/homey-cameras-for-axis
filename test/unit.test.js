@@ -151,3 +151,16 @@ test('scene description: objects, types and colours', () => {
   assert.strictEqual(colorName(250, 250, 250, 'RGB'), 'white');
   assert.strictEqual(parseScene('<tt:MetadataStream/>'), null);
 });
+
+test('installed camera apps from applications/list.cgi', async () => {
+  const { VapixClient } = require('../lib/vapix');
+  const client = new VapixClient({ host: '127.0.0.1', username: 'u', password: 'p' });
+  client.getText = async () => '<reply result="ok">\n <application Name="vmd" NiceName="AXIS Video Motion Detection" Vendor="Axis Communications" Version="4.5-1" ApplicationID="143440" License="None" Status="Running" ConfigurationPage="local/vmd/config.html" VendorHomePage="http://www.axis.com" />\n'
+    + ' <application Name="motionguard" NiceName="AXIS Motion Guard" Vendor="Axis Communications" Version="2.4.1" Status="Stopped" License="Valid"/>\n</reply>';
+  const apps = await client.applications();
+  client.close();
+  assert.deepStrictEqual(apps.map((a) => [a.niceName, a.version, a.status, a.license]), [
+    ['AXIS Video Motion Detection', '4.5-1', 'Running', 'None'],
+    ['AXIS Motion Guard', '2.4.1', 'Stopped', 'Valid'],
+  ]);
+});

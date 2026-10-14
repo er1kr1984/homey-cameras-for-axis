@@ -1,6 +1,6 @@
 {
   "name": {
-    "en": "Traffic and visitors"
+    "en": "Traffic and activity"
   },
   "height": 300,
   "settings": [
@@ -11,8 +11,36 @@
         "en": "Camera"
       },
       "hint": {
-        "en": "A camera with 'Track and count people and vehicles' switched on."
+        "en": "Any camera. Cameras with 'Track and count people and vehicles' on show people and vehicles; the others show motion."
       }
+    },
+    {
+      "id": "show",
+      "type": "dropdown",
+      "title": {
+        "en": "Show"
+      },
+      "value": "auto",
+      "values": [
+        {
+          "id": "auto",
+          "title": {
+            "en": "People and vehicles if counted, else motion"
+          }
+        },
+        {
+          "id": "objects",
+          "title": {
+            "en": "People and vehicles"
+          }
+        },
+        {
+          "id": "motion",
+          "title": {
+            "en": "Motion"
+          }
+        }
+      ]
     },
     {
       "id": "period",
