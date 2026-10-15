@@ -1,6 +1,6 @@
 {
   "1.0.3": {
-    "en": "Fixed: adding cameras stopped after the login screen with an error (\"$(...) is null\"), both when searching and when typing addresses."
+    "en": "Fixed: adding cameras stopped after the login screen with an error (\"$(...) is null\" or \"Type the camera's username\"). New: if Homey finds no cameras, it now asks for their IP addresses straight away, for cameras on a separate network."
   },
   "1.0.2": {
     "en": "Fixed: a camera could lose its picture and live view (no camera button) if Homey couldn't read its settings, for example when the camera user only has Viewer rights or over a slow link between networks. Such cameras get their picture and live view back after this update. A camera user with too few rights is no longer reported as a wrong password."

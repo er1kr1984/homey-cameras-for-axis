@@ -130,22 +130,38 @@ class CameraDriver extends Homey.Driver {
   }
 
   // ---- Pairing ----
-  // 1. login, plus camera addresses if the search can't find them (own view 'login'),
-  // 2. list cameras that accept that login.
+  // 1. login (own view 'login', with optional camera addresses),
+  // 2. list cameras that accept that login,
+  // 3. found nothing: own view 'address' asks for the cameras' addresses, then 2 again
+  //    for just those addresses.
 
   async onPair(session) {
     let login = null;
     this.homey.app.diag('pairing started');
     session.setHandler('showView', async (view) => this.homey.app.diag(`pairing view: ${view}`));
+    const typedAddresses = (text) => {
+      const typed = parseAddresses(text);
+      const bad = typed.filter((a) => !ADDRESS.test(a));
+      if (bad.length) throw new Error(this.homey.__('pair.badAddress', { address: bad.join(', ') }));
+      return typed;
+    };
     session.setHandler('login', async ({ username, password, addresses }) => {
       login = null;
       const user = String(username || '').trim();
       if (!user) throw new Error(this.homey.__('pair.noUsername'));
-      const typed = parseAddresses(addresses);
-      const bad = typed.filter((a) => !ADDRESS.test(a));
-      if (bad.length) throw new Error(this.homey.__('pair.badAddress', { address: bad.join(', ') }));
-      login = { username: user, password: String(password || ''), addresses: typed };
+      const typed = typedAddresses(addresses);
+      login = {
+        username: user, password: String(password || ''), addresses: typed, search: true,
+      };
       this.homey.app.diag(`pairing: login entered, ${typed.length} address(es) typed`);
+      return true;
+    });
+    session.setHandler('addresses', async ({ addresses }) => {
+      if (!login) throw new Error(this.homey.__('pair.noUsername'));
+      const typed = typedAddresses(addresses);
+      if (!typed.length) throw new Error(this.homey.__('pair.noAddress'));
+      login = { ...login, addresses: typed, search: false };
+      this.homey.app.diag(`pairing: ${typed.length} address(es) typed after an empty search`);
       return true;
     });
     session.setHandler('list_devices', async () => {
@@ -156,6 +172,11 @@ class CameraDriver extends Homey.Driver {
         this.homey.app.diag(`pairing: ${list.length} camera(s) listed after ${Date.now() - t0} ms`);
         return list;
       } catch (err) {
+        if (err.code === 'none_found') {
+          this.homey.app.diag('pairing: nothing found, asking for addresses');
+          await session.showView('address');
+          return [];
+        }
         this.homey.app.diagError('pairing failed:', err.message);
         throw err;
       }
@@ -208,7 +229,9 @@ class CameraDriver extends Homey.Driver {
     return { serial, host, ...r };
   }
 
-  async _camerasForLogin({ username, password, addresses = [] }) {
+  async _camerasForLogin({
+    username, password, addresses = [], search = true,
+  }) {
     const deadline = Date.now() + TOTAL_MS;
     const existing = new Set(this.getDevices().map((d) => d.getData().id));
     const loginFailed = [];
@@ -280,6 +303,7 @@ class CameraDriver extends Homey.Driver {
       await check(c);
     });
     const searched = (async () => {
+      if (!search) return;
       const candidates = (await this._candidates())
         .filter((c) => !existing.has(c.serial) && !typed.has(c.host));
       await Promise.all(candidates.map(check));
@@ -298,7 +322,11 @@ class CameraDriver extends Homey.Driver {
     if (!devices.length && loginFailed.length) {
       throw new Error(this.homey.__('pair.loginRefused', { n: loginFailed.length }));
     }
-    if (!devices.length) throw new Error(this.homey.__('pair.noneFound'));
+    if (!devices.length) {
+      const err = new Error(this.homey.__('pair.noneFound'));
+      err.code = 'none_found';
+      throw err;
+    }
     const list = devices.slice();
     list.sort((a, b) => a.store.host.localeCompare(b.store.host, undefined, { numeric: true }));
     return list;

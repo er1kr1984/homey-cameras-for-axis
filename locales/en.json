@@ -19,7 +19,7 @@
     "username": "Camera username",
     "password": "Password",
     "addresses": "Camera addresses (optional)",
-    "addressesHint": "Only needed if your cameras aren't found, for example when they are on a separate network from Homey. Type each camera's IP address, separated by commas. Example: 192.168.2.10, 192.168.2.11",
+    "addressesHint": "Leave this empty: Homey searches its network first. Only needed if some cameras are found but not all. Type each missing camera's IP address, separated by commas.",
     "next": "Find cameras",
     "searching": "Looking for cameras. This can take up to 30 seconds…",
     "badAddress": "\"__address__\" doesn't look like an address. Type it like this: 192.168.2.10",
@@ -30,7 +30,14 @@
       "loginFailed": "__address__: the camera did not accept this username or password.",
       "notCamera": "__address__ is an Axis device, but not a camera. Only cameras can be added for now.",
       "alreadyAdded": "__address__ is already added to Homey."
-    }
+    },
+    "noAddress": "Type at least one camera address, for example 192.168.2.10",
+    "addressTitle": "No cameras found",
+    "addressIntro": "Homey didn't find any new Axis cameras on its own network. This is normal when the cameras are on a separate network, for example 192.168.40.x while Homey is on 192.168.10.x.",
+    "addressLabel": "Camera addresses",
+    "addressHint": "Type each camera's IP address, separated by commas. You can find it in the camera's own web page or in AXIS IP Utility.",
+    "addressNext": "Find these cameras",
+    "checking": "Checking the cameras…"
   },
   "device": {
     "snapshot": "Picture",

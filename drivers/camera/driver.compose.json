@@ -35,6 +35,12 @@
       }
     },
     {
+      "id": "address",
+      "navigation": {
+        "prev": "login"
+      }
+    },
+    {
       "id": "add_devices",
       "template": "add_devices"
     }
