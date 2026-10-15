@@ -3,6 +3,7 @@
 const path = require('node:path');
 const Homey = require('homey');
 const { VapixClient, usableAddress, NOT_CAMERAS } = require('../../lib/vapix');
+const { splitHostPort, parseEntry } = require('../../lib/scan');
 const { EventStream } = require('../../lib/event-stream');
 const { RtspEventStream } = require('../../lib/rtsp-events');
 const {
@@ -124,8 +125,10 @@ class CameraDevice extends Homey.Device {
     if (this.client) this.client.close();
     const store = this.getStore();
     const settings = this.getSettings();
+    const { host, port } = splitHostPort(settings.address || store.host); // "host" or "host:port"
     this.client = new VapixClient({
-      host: settings.address || store.host,
+      host,
+      port,
       secure: settings.use_https !== false,
       username: store.username,
       password: store.password,
@@ -208,6 +211,9 @@ class CameraDevice extends Homey.Device {
     };
     if (info.limitedRights) {
       this.app.diagError(this.tag, 'the camera user has limited rights (Viewer?): some functions may not work');
+      await this.setWarning(this.homey.__('device.limitedRights')).catch(this.error);
+    } else {
+      await this.unsetWarning().catch(this.error);
     }
     // Unread properties: try again at the next health check rather than in a day.
     if (!caps.propsRead) {
@@ -305,6 +311,26 @@ class CameraDevice extends Homey.Device {
     this.app.diagError(this.tag, err.message);
     const message = this.app.friendly(err);
     this.setUnavailable(message).catch(this.error);
+    // A wrong password: stop the streams too, so nothing keeps knocking with it (the
+    // camera may block Homey's address). The health check tries again later; Repair at once.
+    if (err.code === 'login_failed' && this.client.isLocked() && !this.loginLocked) {
+      this.loginLocked = true;
+      this.diag('login refused: streams stopped until the next retry or Repair');
+      if (this.stream) this.stream.stop();
+      this.stream = null;
+      this._stopScene();
+    }
+  }
+
+  // A stream's login was refused: a wrong password, or only too few rights for the stream?
+  async _checkLogin(err) {
+    try {
+      await this.client.identify();
+    } catch (e) {
+      this._connectionProblem(e);
+      return;
+    }
+    this.diag(`stream refused (${err.message}), but the login itself works`);
   }
 
   // Camera or plain device, by whether it has an image of its own.
@@ -321,8 +347,16 @@ class CameraDevice extends Homey.Device {
 
   async _healthCheck() {
     if (this.stream && this.stream.connected) return;
+    if (this.loginLocked && this.client.isLocked()) return;
     try {
       await this.client.identify();
+      if (this.loginLocked) {
+        // The login works again (e.g. the camera's password was changed back).
+        this.loginLocked = false;
+        this.diag('login accepted again');
+        this._restart();
+        return;
+      }
       if (!this.getAvailable()) await this.setAvailable();
       if (Date.now() - ((this.features && this.features.at) || 0) > FEATURES_REFRESH_MS) {
         await this._loadFeatures(true);
@@ -359,7 +393,8 @@ class CameraDevice extends Homey.Device {
       if (!this.getAvailable()) this.setAvailable().catch(this.error);
     });
     stream.on('error', (err) => {
-      if (['login_failed', 'cert_changed', 'forbidden'].includes(err.code)) this._connectionProblem(err);
+      if (err.code === 'login_failed') this._checkLogin(err).catch(this.error);
+      if (['cert_changed', 'forbidden'].includes(err.code)) this._connectionProblem(err);
       // No WebSocket event stream on this camera (AXIS OS before 10): use RTSP from now on.
       if (transport === 'websocket' && err.code === 'not_supported' && this.stream === stream) {
         this.diag('no WebSocket event stream on this camera; using the RTSP event stream');
@@ -1596,11 +1631,12 @@ class CameraDevice extends Homey.Device {
   // Repair: new username/password, checked before it is saved.
   async changeLogin(username, password) {
     const settings = this.getSettings();
+    const { host, port } = splitHostPort(settings.address);
     const test = new VapixClient({
-      host: settings.address, secure: settings.use_https !== false, username, password, pin: this.getStoreValue('pin'),
+      host, port, secure: settings.use_https !== false, username, password, pin: this.getStoreValue('pin'),
     });
     try {
-      await test.deviceInfo();
+      await test.identify();
     } catch (err) {
       throw new Error(this.app.friendly(err));
     } finally {
@@ -1608,6 +1644,7 @@ class CameraDevice extends Homey.Device {
     }
     await this.setStoreValue('username', username);
     await this.setStoreValue('password', password);
+    this.loginLocked = false;
     this._restart();
   }
 
@@ -1618,7 +1655,8 @@ class CameraDevice extends Homey.Device {
   }
 
   async onSettings({ newSettings, changedKeys }) {
-    if (changedKeys.includes('address') && !/^[\w.-]+$/.test(String(newSettings.address || ''))) {
+    const typed = changedKeys.includes('address') ? parseEntry(newSettings.address) : null;
+    if (changedKeys.includes('address') && (!typed || typed.hosts)) {
       throw new Error(this.homey.__('errors.bad_address'));
     }
     if (changedKeys.some((k) => ['address', 'use_https', 'rtsp_port'].includes(k))) {
@@ -1650,8 +1688,11 @@ class CameraDevice extends Homey.Device {
     await this._addressSeen(result.address);
   }
 
-  async _addressSeen(address) {
-    if (!usableAddress(address) || address === this.getSetting('address')) return;
+  async _addressSeen(found) {
+    // A custom port typed by the user is kept; mDNS only tells the new host.
+    const { host, port } = splitHostPort(this.getSetting('address'));
+    if (!usableAddress(found) || found === host) return;
+    const address = port ? `${found}:${port}` : found;
     this.diag(`camera moved to ${address}`);
     await this.setSettings({ address });
     this._restart();

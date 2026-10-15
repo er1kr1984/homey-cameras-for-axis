@@ -1,6 +1,6 @@
 {
   "1.0.3": {
-    "en": "Fixed: adding cameras stopped after the login screen with an error (\"$(...) is null\" or \"Type the camera's username\"). New: if Homey finds no cameras, it now asks for their IP addresses straight away, for cameras on a separate network."
+    "en": "Fixed: adding cameras stopped after the login screen with an error (\"$(...) is null\" or \"Type the camera's username\"). Adding cameras on another network is easier: if none are found, Homey asks for their addresses, and you can type a whole network (192.168.40.0/24 or 192.168.40.10-40) or an address with a port. Networks of cameras you added before are searched automatically. Cameras that refuse the login are named. A user with Viewer rights can be added (with a warning), and after a wrong password the app pauses its login attempts so the camera doesn't block Homey."
   },
   "1.0.2": {
     "en": "Fixed: a camera could lose its picture and live view (no camera button) if Homey couldn't read its settings, for example when the camera user only has Viewer rights or over a slow link between networks. Such cameras get their picture and live view back after this update. A camera user with too few rights is no longer reported as a wrong password."

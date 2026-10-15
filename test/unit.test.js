@@ -203,14 +203,33 @@ test('scene description: the P3267 sample frame (getSupportedMetadata) is read c
   assert.deepStrictEqual(frame.deleted, ['1']);
 });
 
-const { pool, parseAddresses, ADDRESS } = require('../lib/scan');
+const {
+  pool, parseAddresses, parseEntry, splitHostPort, prefixOf,
+} = require('../lib/scan');
 
 test('typed camera addresses: separators, links and duplicates', () => {
   assert.deepStrictEqual(parseAddresses(' 192.168.2.10, 192.168.2.11\n192.168.2.10;cam-1.local '), ['192.168.2.10', '192.168.2.11', 'cam-1.local']);
   assert.deepStrictEqual(parseAddresses('https://192.168.2.10/camera/index.html'), ['192.168.2.10']);
   assert.deepStrictEqual(parseAddresses(''), []);
-  assert.ok(ADDRESS.test('192.168.2.10') && ADDRESS.test('cam-1.local'));
-  assert.ok(!ADDRESS.test('192.168.2.10:8080') && !ADDRESS.test('my camera') && !ADDRESS.test('-bad'));
+  assert.deepStrictEqual(parseEntry('192.168.2.10'), { host: '192.168.2.10', port: null });
+  assert.deepStrictEqual(parseEntry('cam-1.local:8443'), { host: 'cam-1.local', port: 8443 });
+  for (const bad of ['192.168.2.256', '-bad', 'cam:0', 'cam:70000', '10.0.0.0/16', '192.168.1.40-10']) assert.strictEqual(parseEntry(bad), null, bad);
+});
+
+test('typed camera networks', () => {
+  const c24 = parseEntry('192.168.40.0/24').hosts;
+  assert.strictEqual(c24.length, 254);
+  assert.strictEqual(c24[0], '192.168.40.1');
+  assert.strictEqual(c24[253], '192.168.40.254');
+  assert.strictEqual(parseEntry('192.168.40.77/24').hosts[0], '192.168.40.1', 'any address in the network');
+  assert.strictEqual(parseEntry('10.1.0.0/22').hosts.length, 1022);
+  assert.deepStrictEqual(parseEntry('192.168.40.10-12').hosts, ['192.168.40.10', '192.168.40.11', '192.168.40.12']);
+  assert.strictEqual(parseEntry('192.168.40.*').hosts.length, 254);
+  assert.deepStrictEqual(parseAddresses('192.168.40.0/24, http://cam:80/index.html'), ['192.168.40.0/24', 'cam:80']);
+  assert.deepStrictEqual(splitHostPort('cam.local:8443'), { host: 'cam.local', port: 8443 });
+  assert.deepStrictEqual(splitHostPort('192.168.1.5'), { host: '192.168.1.5', port: null });
+  assert.strictEqual(prefixOf('192.168.40.12'), '192.168.40');
+  assert.strictEqual(prefixOf('cam.local'), null);
 });
 
 test('pool starts no new work after the deadline', async () => {

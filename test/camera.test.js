@@ -269,3 +269,34 @@ test('vapix: identify tells a wrong password from too few rights', async () => {
     cam.viewerOnly = false;
   }
 });
+
+test('vapix: after a confirmed wrong password nothing is sent until the lock ends', async () => {
+  const c = client({ password: 'nope' });
+  await assert.rejects(c.identify(), (e) => e.code === 'login_failed');
+  assert.ok(c.isLocked());
+  const before = cam.calls.length;
+  await assert.rejects(c.deviceInfo(), (e) => e.code === 'login_failed');
+  await assert.rejects(c.identify(), (e) => e.code === 'login_failed');
+  assert.strictEqual(cam.calls.length, before, 'no requests while locked');
+  c.lockedUntil = 0;
+  await assert.rejects(c.deviceInfo(), (e) => e.code === 'login_failed');
+  assert.ok(cam.calls.length > before, 'tries again after the lock');
+  c.close();
+});
+
+test('vapix: too few rights does not lock the client', async () => {
+  cam.viewerOnly = true;
+  try {
+    const c = client();
+    await c.identify();
+    assert.ok(!c.isLocked());
+    c.close();
+  } finally {
+    cam.viewerOnly = false;
+  }
+});
+
+test('vapix: probe and client on a custom port', async () => {
+  const r = await probe('127.0.0.1', 2000, cam.httpPort);
+  assert.ok(r && r.info.SerialNumber === SERIAL && r.secure === false);
+});

@@ -8,21 +8,21 @@
     "bad_response": "The camera gave an answer the app could not read.",
     "too_many_streams": "Too many cameras are being watched at once. Close one and try again.",
     "no_picture": "The camera did not send a picture.",
-    "bad_address": "Type the camera's address without http:// or slashes, for example 192.168.1.20.",
+    "bad_address": "Type the camera's address without http:// or slashes, for example 192.168.1.20, or 192.168.1.20:8443 with a port.",
     "no_scenario": "That Object Analytics scenario no longer exists on the camera. Pick it again in the flow card."
   },
   "pair": {
     "noUsername": "Type the camera's username.",
-    "loginRefused": "__n__ camera(s) did not accept this username or password. Check them and try again.",
+    "loginRefused": "__n__ camera(s) did not accept this username or password: __list__. Check the login on these cameras and try again.",
     "title": "Log in to your cameras",
     "intro": "Type the username and password you use on your cameras. Homey then looks for Axis cameras on its network and lists the ones that accept this login.",
     "username": "Camera username",
     "password": "Password",
     "addresses": "Camera addresses (optional)",
-    "addressesHint": "Leave this empty: Homey searches its network first. Only needed if some cameras are found but not all. Type each missing camera's IP address, separated by commas.",
+    "addressesHint": "Leave this empty: Homey searches its own network and the networks of cameras you added before. Only needed if some cameras aren't found. Type IP addresses or a whole network, separated by commas. Example: 192.168.40.10, 192.168.40.0/24",
     "next": "Find cameras",
     "searching": "Looking for cameras. This can take up to 30 seconds…",
-    "badAddress": "\"__address__\" doesn't look like an address. Type it like this: 192.168.2.10",
+    "badAddress": "\"__address__\" doesn't look like an address. Examples: 192.168.40.10, 192.168.40.10:8443, 192.168.40.0/24 or 192.168.40.10-40 (networks up to 1024 addresses).",
     "noneFound": "No new Axis cameras were found on Homey's network. If your cameras are on a separate network, go back and type their IP addresses under \"Camera addresses\". You can find the address in the camera's own web page or in AXIS IP Utility.",
     "address": {
       "unreachable": "__address__: no Axis camera answered. Check the address, and that Homey can reach that network.",
@@ -34,15 +34,16 @@
     "noAddress": "Type at least one camera address, for example 192.168.2.10",
     "addressTitle": "No cameras found",
     "addressIntro": "Homey didn't find any new Axis cameras on its own network. This is normal when the cameras are on a separate network, for example 192.168.40.x while Homey is on 192.168.10.x.",
-    "addressLabel": "Camera addresses",
-    "addressHint": "Type each camera's IP address, separated by commas. You can find it in the camera's own web page or in AXIS IP Utility.",
+    "addressLabel": "Camera addresses or network",
+    "addressHint": "Type each camera's IP address, separated by commas, or a whole network to search, like 192.168.40.0/24 or 192.168.40.10-40. Add a port if the camera's web page isn't on the usual one, like 192.168.40.10:8443.",
     "addressNext": "Find these cameras",
     "checking": "Checking the cameras…"
   },
   "device": {
     "snapshot": "Picture",
     "live": "Live",
-    "poePort": "PoE port __n__"
+    "poePort": "PoE port __n__",
+    "limitedRights": "The camera user Homey logs in with has limited rights (for example Viewer). Pictures, live view and events work, but privacy mode, restart and some settings need an Administrator user. Change the user's rights in the camera (Settings > System > Users), or tap Repair to use another user."
   },
   "flow": {
     "anyScenario": "Any scenario"
