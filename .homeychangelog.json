@@ -1,4 +1,7 @@
 {
+  "1.0.1": {
+    "en": "Adding cameras: you can now type your cameras' IP addresses if Homey can't find them, for example when they are on a separate network. The search always finishes within about 30 seconds, and it now tells you why a camera wasn't found instead of showing nothing."
+  },
   "1.0.0": {
     "en": "First release: live video, motion, AXIS Object Analytics people and vehicle insights (counting, direction, heatmap, visitors, daily summary), door stations, privacy mode, camera health, temperature, power and PoE, and five dashboard widgets."
   }

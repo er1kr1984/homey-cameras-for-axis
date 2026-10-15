@@ -202,3 +202,23 @@ test('scene description: the P3267 sample frame (getSupportedMetadata) is read c
   assert.deepStrictEqual(frame.renames, [{ from: '38', to: '20' }]);
   assert.deepStrictEqual(frame.deleted, ['1']);
 });
+
+const { pool, parseAddresses, ADDRESS } = require('../lib/scan');
+
+test('typed camera addresses: separators, links and duplicates', () => {
+  assert.deepStrictEqual(parseAddresses(' 192.168.2.10, 192.168.2.11\n192.168.2.10;cam-1.local '), ['192.168.2.10', '192.168.2.11', 'cam-1.local']);
+  assert.deepStrictEqual(parseAddresses('https://192.168.2.10/camera/index.html'), ['192.168.2.10']);
+  assert.deepStrictEqual(parseAddresses(''), []);
+  assert.ok(ADDRESS.test('192.168.2.10') && ADDRESS.test('cam-1.local'));
+  assert.ok(!ADDRESS.test('192.168.2.10:8080') && !ADDRESS.test('my camera') && !ADDRESS.test('-bad'));
+});
+
+test('pool starts no new work after the deadline', async () => {
+  const started = [];
+  const t0 = Date.now();
+  await pool([1, 2, 3, 4, 5, 6], 2, async (n) => {
+    started.push(n);
+    await new Promise((r) => setTimeout(r, 50));
+  }, t0 + 75);
+  assert.deepStrictEqual(started, [1, 2, 3, 4]);
+});

@@ -1,0 +1,47 @@
+<style>
+  .ax-hint { font-size: 13px; opacity: .7; margin-top: 4px; }
+  .ax-msg { margin: 12px 0; opacity: .8; }
+  .ax-intro { margin-bottom: 16px; }
+</style>
+
+<header class="homey-header">
+  <h1 class="homey-title" data-i18n="pair.title"></h1>
+</header>
+<p class="ax-intro" data-i18n="pair.intro"></p>
+
+<form class="homey-form" id="ax-form">
+  <div class="homey-form-group">
+    <label class="homey-form-label" for="ax-user" data-i18n="pair.username"></label>
+    <input class="homey-form-input" id="ax-user" type="text" placeholder="homey" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" />
+  </div>
+  <div class="homey-form-group">
+    <label class="homey-form-label" for="ax-pass" data-i18n="pair.password"></label>
+    <input class="homey-form-input" id="ax-pass" type="password" autocomplete="current-password" />
+  </div>
+  <div class="homey-form-group">
+    <label class="homey-form-label" for="ax-addr" data-i18n="pair.addresses"></label>
+    <input class="homey-form-input" id="ax-addr" type="text" placeholder="192.168.2.10, 192.168.2.11" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" />
+    <p class="ax-hint" data-i18n="pair.addressesHint"></p>
+  </div>
+  <button class="homey-button-primary-full" id="ax-next" type="submit" data-i18n="pair.next"></button>
+</form>
+<div class="ax-msg" id="ax-msg"></div>
+
+<script type="application/javascript">
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = Homey.__(el.dataset.i18n); });
+  const $ = (id) => document.getElementById(id);
+
+  $('ax-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    $('ax-next').disabled = true;
+    try {
+      await Homey.emit('login', { username: $('ax-user').value, password: $('ax-pass').value, addresses: $('ax-addr').value });
+      $('ax-msg').textContent = Homey.__('pair.searching');
+      Homey.showView('list_devices');
+    } catch (e) {
+      Homey.alert(e.message || String(e));
+    } finally {
+      $('ax-next').disabled = false;
+    }
+  });
+</script>

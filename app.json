@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.erikrichardson.axis",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "compatibility": ">=12.7.0",
   "runtime": "nodejs",
   "sdk": 3,
@@ -3141,25 +3141,7 @@
       },
       "pair": [
         {
-          "id": "login_credentials",
-          "template": "login_credentials",
-          "options": {
-            "title": {
-              "en": "Log in to your cameras"
-            },
-            "usernameLabel": {
-              "en": "Camera username"
-            },
-            "usernamePlaceholder": {
-              "en": "homey"
-            },
-            "passwordLabel": {
-              "en": "Password"
-            },
-            "passwordPlaceholder": {
-              "en": "Password"
-            }
-          },
+          "id": "login",
           "navigation": {
             "next": "list_devices"
           }
@@ -3168,7 +3150,7 @@
           "id": "list_devices",
           "template": "list_devices",
           "navigation": {
-            "prev": "login_credentials",
+            "prev": "login",
             "next": "add_devices"
           }
         },

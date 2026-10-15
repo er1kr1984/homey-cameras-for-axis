@@ -152,10 +152,12 @@ Guard), whose alarms then appear by themselves.
 ## Getting started
 
 1. Install the app on your Homey Pro.
-2. **Devices → + → Cameras for AXIS → Axis camera.** The app finds Axis devices on your network
-   (mDNS and a network scan); you can also type an address.
-3. Enter the username and password of an account on the camera (see below). The camera's HTTPS
-   certificate is remembered, so nobody can later pretend to be your camera.
+2. **Devices → + → Cameras for AXIS → Axis camera.**
+3. Enter the username and password of an account on the camera (see below). The app then finds
+   Axis cameras on Homey's network (mDNS and a network scan of Homey's own subnet) and lists the
+   ones that accept this login. If your cameras are on a separate network or VLAN, type their IP
+   addresses in **Camera addresses**, separated by commas. The camera's HTTPS certificate is
+   remembered, so nobody can later pretend to be your camera.
 4. Optional: in the device settings switch on **Track and count people and vehicles** for cameras
    with AXIS Object Analytics, and give the four directions your own names.
 5. Add the [widgets](#dashboard-widgets) to a dashboard and build flows with the
