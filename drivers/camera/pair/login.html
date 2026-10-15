@@ -28,20 +28,24 @@
 <div class="ax-msg" id="ax-msg"></div>
 
 <script type="application/javascript">
-  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = Homey.__(el.dataset.i18n); });
-  const $ = (id) => document.getElementById(id);
+  // Wrapped in a function: this page runs inside Homey's own pairing page, which uses a
+  // global $ (jQuery) to switch views. A global $ here broke going to the camera list.
+  (function () {
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = Homey.__(el.dataset.i18n); });
+    const byId = (id) => document.getElementById(id);
 
-  $('ax-form').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    $('ax-next').disabled = true;
-    try {
-      await Homey.emit('login', { username: $('ax-user').value, password: $('ax-pass').value, addresses: $('ax-addr').value });
-      $('ax-msg').textContent = Homey.__('pair.searching');
-      Homey.showView('list_devices');
-    } catch (e) {
-      Homey.alert(e.message || String(e));
-    } finally {
-      $('ax-next').disabled = false;
-    }
-  });
+    byId('ax-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      byId('ax-next').disabled = true;
+      try {
+        await Homey.emit('login', { username: byId('ax-user').value, password: byId('ax-pass').value, addresses: byId('ax-addr').value });
+        byId('ax-msg').textContent = Homey.__('pair.searching');
+        Homey.showView('list_devices');
+      } catch (e) {
+        Homey.alert(e.message || String(e));
+      } finally {
+        byId('ax-next').disabled = false;
+      }
+    });
+  }());
 </script>
