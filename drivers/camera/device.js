@@ -2,7 +2,7 @@
 
 const path = require('node:path');
 const Homey = require('homey');
-const { VapixClient, usableAddress } = require('../../lib/vapix');
+const { VapixClient, usableAddress, NOT_CAMERAS } = require('../../lib/vapix');
 const { EventStream } = require('../../lib/event-stream');
 const { RtspEventStream } = require('../../lib/rtsp-events');
 const {
@@ -13,7 +13,7 @@ const { Activity } = require('../../lib/activity');
 const events = require('../../lib/events-map');
 
 const FEATURES_REFRESH_MS = 6 * 60 * 60 * 1000; // re-read what the camera supports
-const FEATURES_VERSION = 5; // bump to re-read after an app update that uses more
+const FEATURES_VERSION = 6; // bump to re-read after an app update that uses more
 const SOUND_LEVEL_MS = 10 * 1000; // sound level reading updated at most this often
 const AUDIO_CLASS_GAP_MS = 10 * 1000; // per sound type
 const SCENE_CHANGE_SAMPLES = 2; // a new people/vehicle count must hold this many frames
@@ -158,10 +158,7 @@ class CameraDevice extends Homey.Device {
     // What the device shows always follows what it can do (also after an app update).
     await this._syncCapabilities().catch(this.error);
     await this._attachMedia();
-    if (this.hasVideo() === false && this.getClass() === 'camera') {
-      this.diag('no image of its own (e.g. a recorder): shown as a plain device, without picture or live view');
-      await this.setClass('other').catch(this.error);
-    }
+    await this._syncClass();
     this._startEvents();
     this._startScene();
     this._checkApps().catch(this.error);
@@ -206,7 +203,14 @@ class CameraDevice extends Homey.Device {
     } catch (err) {
       this.diag(`could not list event types: ${err.message}`);
     }
-    this.features = { ...caps, at: Date.now(), v: FEATURES_VERSION };
+    this.features = {
+      ...caps, prodType: info.ProdType || '', at: Date.now(), v: FEATURES_VERSION,
+    };
+    // Unread properties: try again at the next health check rather than in a day.
+    if (!caps.propsRead) {
+      this.features.at = 0;
+      this.diag('could not read the camera\'s properties; will try again');
+    }
     this.instances = instances.map((i) => ({
       topic: i.topic, name: i.name, stateful: i.stateful, data: i.data,
     }));
@@ -300,12 +304,28 @@ class CameraDevice extends Homey.Device {
     this.setUnavailable(message).catch(this.error);
   }
 
+  // Camera or plain device, by whether it has an image of its own.
+  async _syncClass() {
+    if (this.hasVideo() === false && this.getClass() === 'camera') {
+      this.diag('no image of its own (e.g. a recorder): shown as a plain device, without picture or live view');
+      await this.setClass('other').catch(this.error);
+    } else if (this.hasVideo() === true && this.getClass() !== 'camera') {
+      // Earlier versions could mistake a camera for a recorder after a failed read.
+      this.diag('has an image: shown as a camera again');
+      await this.setClass('camera').catch(this.error);
+    }
+  }
+
   async _healthCheck() {
     if (this.stream && this.stream.connected) return;
     try {
       await this.client.deviceInfo();
       if (!this.getAvailable()) await this.setAvailable();
-      if (Date.now() - ((this.features && this.features.at) || 0) > FEATURES_REFRESH_MS) await this._loadFeatures(true);
+      if (Date.now() - ((this.features && this.features.at) || 0) > FEATURES_REFRESH_MS) {
+        await this._loadFeatures(true);
+        await this._attachMedia();
+        await this._syncClass();
+      }
     } catch (err) {
       this._connectionProblem(err);
     }
@@ -1177,10 +1197,13 @@ class CameraDevice extends Homey.Device {
 
   // Whether the device has an image of its own (cameras, door stations; not recorders or
   // speakers). Unknown before its features are read.
+  // A failed read is never taken as "no image": the product type decides then.
   hasVideo() {
     const f = this.features;
     if (!f) return null;
-    return Boolean((f.resolutions && f.resolutions.length) || (f.formats && f.formats.includes('jpeg')));
+    if ((f.resolutions && f.resolutions.length) || (f.formats && f.formats.includes('jpeg'))) return true;
+    if (f.prodType) return !NOT_CAMERAS.test(f.prodType);
+    return f.propsRead === false ? null : false;
   }
 
   async _attachMedia() {

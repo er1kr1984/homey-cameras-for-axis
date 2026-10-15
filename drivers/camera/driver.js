@@ -1,12 +1,13 @@
 'use strict';
 
 const Homey = require('homey');
-const { VapixClient, usableAddress, probe } = require('../../lib/vapix');
+const {
+  VapixClient, usableAddress, probe, NOT_CAMERAS,
+} = require('../../lib/vapix');
 const { scanSubnet, parseAddresses, ADDRESS } = require('../../lib/scan');
 
 // Product types offered as cameras; speakers, recorders and door controllers come later.
 const CAMERA_TYPES = /camera|door station|encoder|intercom|thermal/i;
-const NOT_CAMERAS = /recorder|speaker|audio|door controller|radar|i\/o|switch/i;
 const isCamera = (type) => !type || (CAMERA_TYPES.test(type) && !NOT_CAMERAS.test(type));
 // Flow card filters: 'any', a category ('car'), or a group ('people', 'vehicles').
 const typeMatches = (type, category) => !type || type === 'any' || type === category

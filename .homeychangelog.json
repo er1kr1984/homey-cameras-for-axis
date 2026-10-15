@@ -1,4 +1,7 @@
 {
+  "1.0.2": {
+    "en": "Fixed: a camera could lose its picture and live view (no camera button) if Homey couldn't read its settings once, for example over a slow link between networks. Such cameras get their picture and live view back after this update."
+  },
   "1.0.1": {
     "en": "Adding cameras: you can now type your cameras' IP addresses if Homey can't find them, for example when they are on a separate network. The search always finishes within about 30 seconds, and it now tells you why a camera wasn't found instead of showing nothing."
   },

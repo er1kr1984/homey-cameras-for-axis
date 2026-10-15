@@ -1,6 +1,6 @@
 {
   "id": "com.erikrichardson.axis",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "compatibility": ">=12.7.0",
   "runtime": "nodejs",
   "sdk": 3,
