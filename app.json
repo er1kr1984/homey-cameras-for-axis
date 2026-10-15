@@ -3141,10 +3141,7 @@
       },
       "pair": [
         {
-          "id": "login",
-          "navigation": {
-            "next": "list_devices"
-          }
+          "id": "login"
         },
         {
           "id": "list_devices",
