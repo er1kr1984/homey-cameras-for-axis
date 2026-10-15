@@ -252,3 +252,20 @@ test('vapix: power use (Power settings API) and recorder PoE ports (NVR PoE API)
   assert.strictEqual(await c.poeLimit(), 65);
   c.close();
 });
+
+test('vapix: identify tells a wrong password from too few rights', async () => {
+  await assert.rejects(client({ password: 'nope' }).identify(), (e) => e.code === 'login_failed');
+  cam.viewerOnly = true;
+  try {
+    const c = client();
+    await assert.rejects(c.deviceInfo(), (e) => e.code === 'login_failed');
+    const info = await c.identify();
+    assert.strictEqual(info.limitedRights, true);
+    assert.strictEqual(info.ProdType, 'Network Camera');
+    const caps = await c.capabilities();
+    assert.strictEqual(caps.propsRead, false, 'unread properties are not "no image"');
+    c.close();
+  } finally {
+    cam.viewerOnly = false;
+  }
+});

@@ -196,7 +196,7 @@ class CameraDevice extends Homey.Device {
   async _loadFeatures(force) {
     const fresh = this.features && this.features.v === FEATURES_VERSION && Date.now() - this.features.at < FEATURES_REFRESH_MS;
     if (fresh && !force && this.instances.length) return;
-    const [info, caps] = await Promise.all([this.client.deviceInfo(), this.client.capabilities()]);
+    const [info, caps] = await Promise.all([this.client.identify(), this.client.capabilities()]);
     let instances = [];
     try {
       instances = await this.client.eventInstances();
@@ -204,8 +204,11 @@ class CameraDevice extends Homey.Device {
       this.diag(`could not list event types: ${err.message}`);
     }
     this.features = {
-      ...caps, prodType: info.ProdType || '', at: Date.now(), v: FEATURES_VERSION,
+      ...caps, prodType: info.ProdType || '', limitedRights: Boolean(info.limitedRights), at: Date.now(), v: FEATURES_VERSION,
     };
+    if (info.limitedRights) {
+      this.app.diagError(this.tag, 'the camera user has limited rights (Viewer?): some functions may not work');
+    }
     // Unread properties: try again at the next health check rather than in a day.
     if (!caps.propsRead) {
       this.features.at = 0;
@@ -319,7 +322,7 @@ class CameraDevice extends Homey.Device {
   async _healthCheck() {
     if (this.stream && this.stream.connected) return;
     try {
-      await this.client.deviceInfo();
+      await this.client.identify();
       if (!this.getAvailable()) await this.setAvailable();
       if (Date.now() - ((this.features && this.features.at) || 0) > FEATURES_REFRESH_MS) {
         await this._loadFeatures(true);
@@ -455,7 +458,7 @@ class CameraDevice extends Homey.Device {
       await this.setCapabilityValue('axis_watched', state).catch(this.error);
       this.driver.triggers.watched.trigger(this, { watching: state }).catch(this.error);
     }
-    if (kind === 'recording' && state !== null) await this.setCapabilityValue('axis_recording', state).catch(this.error);
+    if (kind === 'recording' && state !== null && this.hasCapability('axis_recording')) await this.setCapabilityValue('axis_recording', state).catch(this.error);
     if (kind === 'light' && state !== null) await this.setCapabilityValue('axis_ir', state).catch(this.error);
     if (kind === 'schedule' && state !== null) {
       const id = String(ev.source.id || '');
@@ -1061,7 +1064,7 @@ class CameraDevice extends Homey.Device {
     }
     if (kind === 'health') this._health(ev, key, state, true);
     if (kind === 'watched') this.setCapabilityValue('axis_watched', state === true).catch(this.error);
-    if (kind === 'recording') this.setCapabilityValue('axis_recording', state === true).catch(this.error);
+    if (kind === 'recording' && this.hasCapability('axis_recording')) this.setCapabilityValue('axis_recording', state === true).catch(this.error);
     if (kind === 'light') this.setCapabilityValue('axis_ir', state === true).catch(this.error);
     if (kind === 'pir') {
       this.setCapabilityValue('axis_pir', state === true).catch(this.error);

@@ -146,6 +146,11 @@ class FakeCamera {
         res.writeHead(401, { 'WWW-Authenticate': this._challenge() });
         return res.end();
       }
+      // A Viewer account: Axis answers 401 to anything above its rights, pictures are allowed.
+      if (this.viewerOnly && url.pathname !== '/axis-cgi/jpg/image.cgi') {
+        res.writeHead(401, { 'WWW-Authenticate': this._challenge() });
+        return res.end();
+      }
       switch (url.pathname) {
         case '/axis-cgi/basicdeviceinfo.cgi':
           return this._json(res, { propertyList: { ProdNbr: 'M1065-L', ProdFullName: 'AXIS M1065-L Network Camera', ProdType: 'Network Camera', SerialNumber: SERIAL, Version: '11.11.1', Architecture: 'armv7hf' } });
