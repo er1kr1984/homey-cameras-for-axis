@@ -1117,7 +1117,7 @@ class CameraDevice extends Homey.Device {
     }
   }
 
-  // Body heat sensor (PIR): its own alarm, and motion unless switched off in the settings.
+  // PIR motion sensor: its own alarm, and motion unless switched off in the settings.
   async _pir(ev, state) {
     const before = this.getCapabilityValue('axis_pir');
     await this.setCapabilityValue('axis_pir', state).catch(this.error);

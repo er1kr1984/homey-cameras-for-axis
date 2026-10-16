@@ -16,5 +16,8 @@
   },
   "1.0.5": {
     "en": "The restart Flow card now says clearly that it reboots the camera, and the camera shows \"restarting\" until it is back."
+  },
+  "1.0.6": {
+    "en": "The body heat sensor is now called the PIR motion sensor, with a more accurate explanation of what it notices."
   }
 }

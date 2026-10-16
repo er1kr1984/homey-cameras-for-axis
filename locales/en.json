@@ -142,7 +142,7 @@
     "blockedIp": "Blocked __address__ after wrong passwords",
     "soundAbove": "Sound above the camera's limit",
     "soundBelow": "Sound below the camera's limit",
-    "pir": "Body heat sensed",
+    "pir": "PIR motion sensed",
     "doorbell": "Someone pressed the call button",
     "pinEntered": "A code was entered",
     "tagShown": "A card or tag was shown",

@@ -195,11 +195,11 @@
         "id": "pir_motion",
         "type": "checkbox",
         "label": {
-          "en": "Body heat sensor counts as motion"
+          "en": "PIR motion sensor counts as motion"
         },
         "value": true,
         "hint": {
-          "en": "Only for cameras with a PIR (body heat) sensor, such as the M1065-L. On: the motion alarm also goes on when the sensor feels someone. Off: the sensor only has its own alarm and flow card."
+          "en": "Only for cameras with a PIR motion sensor, such as the M1065-L. On: the motion alarm also goes on when the sensor senses movement. Off: the sensor only has its own alarm and flow card."
         }
       }
     ]

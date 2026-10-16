@@ -1467,13 +1467,13 @@
     {
       "id": "pir_changed",
       "title": {
-        "en": "Body heat sensor changed"
+        "en": "PIR motion sensor changed"
       },
       "titleFormatted": {
-        "en": "Body heat sensor [[state]]"
+        "en": "PIR motion sensor [[state]]"
       },
       "hint": {
-        "en": "The camera's PIR sensor senses body heat (people, animals) in front of it. It gives far fewer false alarms than motion in the picture: rain, shadows and insects don't set it off."
+        "en": "The camera's PIR sensor reacts to warm bodies (people, animals) moving in front of it. It's fooled less often than motion in the picture: rain, shadows and changing light don't set it off. It doesn't notice someone who stands still."
       },
       "args": [
         {
@@ -1486,7 +1486,7 @@
             {
               "id": "on",
               "label": {
-                "en": "senses someone"
+                "en": "senses movement"
               }
             },
             {
@@ -1509,7 +1509,7 @@
           "name": "active",
           "type": "boolean",
           "title": {
-            "en": "Sensing someone"
+            "en": "Sensing movement"
           }
         }
       ],
@@ -2130,7 +2130,7 @@
     {
       "id": "pir_active",
       "title": {
-        "en": "Body heat sensor !{{senses|doesn't sense}} someone"
+        "en": "PIR motion sensor !{{senses|doesn't sense}} movement"
       },
       "$filter": "capabilities=axis_pir"
     },

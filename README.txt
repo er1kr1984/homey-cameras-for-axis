@@ -5,7 +5,7 @@ See
 - The camera picture on the device, and a fresh picture with every flow that needs one.
 
 Know what happens
-- Motion from the camera's motion detection, Object Analytics and body heat (PIR) sensors.
+- Motion from the camera's motion detection, Object Analytics and PIR motion sensors.
 - People and vehicles (cameras with AXIS Object Analytics): every person, car, truck, bus, bicycle and motorbike is followed and counted once, with colours, bag, direction and how long it stayed. Faces and licence plates as their own events, with the camera's close-up.
 - Object Analytics scenarios as alarms, crossline counting with totals per type, and occupancy in an area.
 - Motion and visitors per hour, a heatmap of where people and vehicles go, unusual activity and a daily summary in plain words.

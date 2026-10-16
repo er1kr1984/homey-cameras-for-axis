@@ -127,7 +127,7 @@ is the reference.
 | Motion Guard / Fence Guard / Loitering Guard alarms | That camera app installed and running | — |
 | Sound level, sound detection | A microphone (and audio switched on) | — |
 | Sound classification (glass break, scream, shout, speech), unusual sound | A model with audio analytics | — |
-| Body heat (PIR) | A model with a PIR sensor | — |
+| PIR motion | A model with a PIR sensor | — |
 | IR / white light control | A model with light control | — |
 | Privacy mode | Privacy masks (most cameras) and an **administrator** account | Action refused with a plain message |
 | Text on the picture | Any camera (dynamic overlay on newer AXIS OS, the text field on older) | — |
@@ -144,7 +144,7 @@ is the reference.
 
 Each device is asked what it can do — its event list (GetEventInstances), API list (API discovery),
 properties, installed camera apps and metadata producers — and **only shows what it really
-supports**. A recorder gets no picture, motion or night mode; the body heat sensor only appears on
+supports**. A recorder gets no picture, motion or night mode; the PIR motion sensor only appears on
 cameras with a PIR sensor; flow cards only list the devices they work with. This is checked again
 at every start and every 30 minutes for newly installed camera apps (for example AXIS Motion
 Guard), whose alarms then appear by themselves.
@@ -197,7 +197,7 @@ If an action needs more rights than the account has, the flow says so in plain w
 | | Picture size | Size of the device picture and flow pictures. |
 | Motion | Keep motion on for | Seconds the motion alarm stays on after the camera stops seeing motion. |
 | | Object Analytics also turns on motion | People/vehicles from Object Analytics count as motion. |
-| | Body heat sensor counts as motion | PIR sensor also turns on the motion alarm. |
+| | PIR motion sensor counts as motion | PIR sensor also turns on the motion alarm. |
 | People and vehicles | Track and count people and vehicles | Follows and counts every object (AXIS Object Analytics); needed for the people/vehicle flows, insights and widgets. |
 | | Direction names (4) | Your own words for left→right, right→left, towards and away from the camera. |
 | About this camera | Model, serial number, AXIS OS | Read from the camera. |
@@ -242,7 +242,7 @@ Cards are only offered for devices that support them (column "needs"). Generated
 | A … has been in view for … minutes | Runs once for each person or vehicle that stays in the picture this long. Example: 2 minutes for someone hanging around the gate, 10 minutes for a car parked outside. The camera may stop following objects that stand completely still for a long time. Needs 'Track and count people and vehicles' on in the device settings. | Type, Minutes, Colours, Picture, Top colour, Trousers colour, Carries a bag, Wears a hat, Licence plate, Speed (km/h) · shown for devices with `axis_people` |
 | More … than usual | Runs when the camera sees clearly more than usual for this hour, or anything at an hour when there is normally nothing (for example 03:00). It learns what is usual by itself, so it only starts after a week. At most once an hour. Motion works on every camera; people and vehicles need 'Track and count people and vehicles' on in the device settings. | What, Count this hour, Usual for this hour, Hour · shown for devices with `axis_motion_today` |
 | Summary of … at … | Runs every day at the time you pick, with a sentence like 'Today: 34 people, 12 cars and 3 bicycles. Busiest hour 17:00 (9).' Use the Summary tag in a notification or have a speaker read it out. Cameras without 'Track and count people and vehicles' give a motion summary instead. | Summary, People, Vehicles, Times motion, Busiest hour · shown for devices with `axis_motion_today` |
-| Body heat sensor … | The camera's PIR sensor senses body heat (people, animals) in front of it. It gives far fewer false alarms than motion in the picture: rain, shadows and insects don't set it off. | Sensing someone · shown for devices with `axis_pir` |
+| PIR motion sensor … | The camera's PIR sensor reacts to warm bodies (people, animals) moving in front of it. It's fooled less often than motion in the picture: rain, shadows and changing light don't set it off. It doesn't notice someone who stands still. | Sensing movement · shown for devices with `axis_pir` |
 | Someone was blocked for wrong logins | The camera blocked an address after too many wrong passwords. Someone may be trying to get into your camera. | Blocked address |
 | Sound went … the camera's limit | The limits are set on the camera's own web page (Audio → Sound pressure level). | Above the upper limit · shown for devices with `measure_noise` |
 | Someone pressed the call button | A visitor pressed the call button on the door station (it starts calling). The picture is taken at that moment. | Picture · shown for devices with `axis_call` |
@@ -265,7 +265,7 @@ Cards are only offered for devices that support them (column "needs"). Generated
 | Camera has problem |  |  |
 | A … is in view | Is the camera seeing one right now? Example: when the doorbell rings AND a person is in view of the garden camera. Needs 'Track and count people and vehicles' on in the device settings. | shown for devices with `axis_people` |
 | More than … … in view | Counts the people or vehicles the camera sees right now. Example: more than 3 people in the garden. Needs 'Track and count people and vehicles' on in the device settings. | shown for devices with `axis_people` |
-| Body heat sensor senses someone |  | shown for devices with `axis_pir` |
+| PIR motion sensor senses movement |  | shown for devices with `axis_pir` |
 | Privacy mode is on |  | shown for devices with `axis_privacy` |
 | A call is in progress |  | shown for devices with `axis_call` |
 | More than … in area … |  |  |
@@ -303,7 +303,7 @@ Cards are only offered for devices that support them (column "needs"). Generated
 | IR light | has light control |
 | Sound level (dB) | has sound pressure level metrics |
 | Recording, Live view being watched | has its own video and reports these |
-| Body heat (PIR) | has a PIR sensor |
+| PIR motion | has a PIR sensor |
 | Call in progress | is a door station (call state events) |
 | Privacy mode (switch) | supports privacy masks |
 | Temperature | has temperature sensors |
