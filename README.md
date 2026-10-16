@@ -87,7 +87,7 @@ server and no extra software are needed. (If you use AXIS Camera Station Pro, se
   light** profiles (devices with a siren/strobe).
 - **PTZ** presets and home (PTZ or view areas), **IR/white light** (models with light control), **outputs** (gates, relays), **virtual inputs**
   (to start the camera's own action rules).
-- **Restart** a camera that hangs; **reset counts** and **test** an Object Analytics alarm.
+- **Restart (reboot)** a camera that hangs (the camera is gone for about a minute); **reset counts** and **test** an Object Analytics alarm.
 
 ## What your camera needs
 
@@ -286,7 +286,7 @@ Cards are only offered for devices that support them (column "needs"). Generated
 | Stop the sound |  |  |
 | Start siren and light profile … | For Axis devices with a siren or strobe light. Profiles are made on the device's web page. |  |
 | Stop siren and light |  |  |
-| Restart the camera | For when a camera hangs. It's gone for about a minute. Needs the camera's administrator account. |  |
+| Restart (reboot) the camera | The camera itself restarts: no picture, live view, recording or events for about a minute. The device shows 'restarting' until it's back. For when a camera hangs. Needs a camera user with Administrator rights. |  |
 | Show … on the picture at … | For example 'Away mode' or the outside temperature. The text stays until you change or remove it. The same card again changes the text. |  |
 | Remove the text from the picture |  |  |
 | Reset the counts of … | Sets a crossline counting scenario in AXIS Object Analytics back to 0. |  |

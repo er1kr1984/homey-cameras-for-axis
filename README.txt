@@ -18,7 +18,7 @@ Keep an eye on your devices
 
 Control
 - Privacy mode: cover the whole picture with one switch or flow.
-- Text on the picture, sounds and siren and light, PTZ presets, the IR light, outputs and virtual inputs, and restarting a camera.
+- Text on the picture, sounds and siren and light, PTZ presets, the IR light, outputs and virtual inputs, and restarting (rebooting) a camera that hangs.
 
 Five dashboard widgets: camera analytics, recent visitors, traffic and activity, heatmap, and an overview of all cameras.
 

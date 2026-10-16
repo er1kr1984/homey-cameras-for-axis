@@ -25,6 +25,7 @@ const TRACK_FRAME_MS = 300; // scene frames read while tracking (objects pass qu
 const TRAFFIC_SAVE_MS = 15 * 60 * 1000; // history is also saved when the app stops
 const DETECTED_GAP_MS = 5000; // per category, for the "detected" flow
 const HEALTH_MS = 5 * 60 * 1000;
+const RESTART_CHECK_MS = 3 * 60 * 1000; // after a camera restart: back by now?
 const TAMPER_HOLD_MS = 60 * 1000;
 const EVENT_IMAGES = 10; // flow pictures kept per camera (oldest reused)
 const EVENT_SNAPSHOT_TIMEOUT_MS = 4000;
@@ -1495,9 +1496,21 @@ class CameraDevice extends Homey.Device {
     await this._act('siren and light', () => this.client.stopSiren());
   }
 
+  // Reboots the camera itself. The device says so until the camera is back: the event
+  // stream's reconnect makes it available again, or the check below if that doesn't come.
   async restartCamera() {
     this.diag('restarting the camera (flow)');
     await this._act('restart', () => this.client.restart());
+    await this.setUnavailable(this.homey.__('device.restarting')).catch(this.error);
+    this.homey.setTimeout(async () => {
+      if (this.getAvailable()) return;
+      try {
+        await this.client.identify();
+        await this.setAvailable();
+      } catch (err) {
+        this._connectionProblem(err);
+      }
+    }, RESTART_CHECK_MS);
   }
 
   // Text on the picture; the overlay id is kept to change or remove it later.

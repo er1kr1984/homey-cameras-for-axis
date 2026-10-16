@@ -41,6 +41,7 @@
   },
   "device": {
     "snapshot": "Picture",
+    "restarting": "The camera is restarting. It will be back in about a minute.",
     "live": "Live",
     "poePort": "PoE port __n__",
     "limitedRights": "The camera user Homey logs in with has limited rights (for example Viewer). Pictures, live view and events work, but privacy mode, restart and some settings need an Administrator user. Change the user's rights in the camera (Settings > System > Users), or tap Repair to use another user."

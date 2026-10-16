@@ -2596,10 +2596,10 @@
     {
       "id": "restart_camera",
       "title": {
-        "en": "Restart the camera"
+        "en": "Restart (reboot) the camera"
       },
       "hint": {
-        "en": "For when a camera hangs. It's gone for about a minute. Needs the camera's administrator account."
+        "en": "The camera itself restarts: no picture, live view, recording or events for about a minute. The device shows 'restarting' until it's back. For when a camera hangs. Needs a camera user with Administrator rights."
       }
     },
     {

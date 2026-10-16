@@ -13,5 +13,8 @@
   },
   "1.0.4": {
     "en": "Fixed a false \"limited rights\" warning for cameras whose user is an Administrator. The warning now also clears by itself once the rights are right."
+  },
+  "1.0.5": {
+    "en": "The restart Flow card now says clearly that it reboots the camera, and the camera shows \"restarting\" until it is back."
   }
 }
