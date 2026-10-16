@@ -146,6 +146,12 @@ class FakeCamera {
         res.writeHead(401, { 'WWW-Authenticate': this._challenge() });
         return res.end();
       }
+      // A renewed login session: the next request(s) are refused once.
+      if (this.refuseNext > 0) {
+        this.refuseNext -= 1;
+        res.writeHead(401, { 'WWW-Authenticate': this._challenge() });
+        return res.end();
+      }
       // A Viewer account: Axis answers 401 to anything above its rights, pictures are allowed.
       if (this.viewerOnly && url.pathname !== '/axis-cgi/jpg/image.cgi') {
         res.writeHead(401, { 'WWW-Authenticate': this._challenge() });

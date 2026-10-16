@@ -284,6 +284,20 @@ test('vapix: after a confirmed wrong password nothing is sent until the lock end
   c.close();
 });
 
+test('vapix: a single refused request does not count as too few rights', async () => {
+  const c = client();
+  await c.deviceInfo();
+  cam.refuseNext = 2;
+  try {
+    const info = await c.identify();
+    assert.ok(!info.limitedRights, 'an administrator is not reported as a viewer');
+    assert.ok(info.Architecture, 'full information read on the second try');
+  } finally {
+    cam.refuseNext = 0;
+    c.close();
+  }
+});
+
 test('vapix: too few rights does not lock the client', async () => {
   cam.viewerOnly = true;
   try {

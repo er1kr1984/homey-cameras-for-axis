@@ -212,6 +212,8 @@ class CameraDevice extends Homey.Device {
     if (info.limitedRights) {
       this.app.diagError(this.tag, 'the camera user has limited rights (Viewer?): some functions may not work');
       await this.setWarning(this.homey.__('device.limitedRights')).catch(this.error);
+      // Check again at the next health check, so changed rights clear the warning soon.
+      this.features.at = 0;
     } else {
       await this.unsetWarning().catch(this.error);
     }
@@ -489,7 +491,7 @@ class CameraDevice extends Homey.Device {
       }
     }
     if (kind === 'health') this._health(ev, key, state, false);
-    if (kind === 'watched' && state !== null) {
+    if (kind === 'watched' && state !== null && this.hasCapability('axis_watched')) {
       await this.setCapabilityValue('axis_watched', state).catch(this.error);
       this.driver.triggers.watched.trigger(this, { watching: state }).catch(this.error);
     }
@@ -1098,7 +1100,7 @@ class CameraDevice extends Homey.Device {
       if (sc && !sc.counting && sc.stateful) this.setCapabilityValue(`alarm_generic.${sc.id}`, state === true).catch(this.error);
     }
     if (kind === 'health') this._health(ev, key, state, true);
-    if (kind === 'watched') this.setCapabilityValue('axis_watched', state === true).catch(this.error);
+    if (kind === 'watched' && this.hasCapability('axis_watched')) this.setCapabilityValue('axis_watched', state === true).catch(this.error);
     if (kind === 'recording' && this.hasCapability('axis_recording')) this.setCapabilityValue('axis_recording', state === true).catch(this.error);
     if (kind === 'light') this.setCapabilityValue('axis_ir', state === true).catch(this.error);
     if (kind === 'pir') {
